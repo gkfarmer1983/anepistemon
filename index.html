@@ -12,30 +12,56 @@
             background-color: #f8f5f0;
             color: #2c2c2c;
             text-align: center;
-            line-height: 1.6;
+            line-height: 1.7;
         }
         header {
             background-color: #1a1a1a;
             color: #f8f5f0;
-            padding: 6rem 1rem 4rem;
+            padding: 5rem 1rem 3.5rem;
         }
         h1 {
-            font-size: 5.5rem;
+            font-size: 4.8rem;
             margin: 0 0 1rem 0;
             letter-spacing: 4px;
             font-weight: bold;
         }
         .tagline {
             font-style: italic;
-            font-size: 1.6rem;
+            font-size: 1.45rem;
             margin: 0;
             opacity: 0.95;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
         }
         main {
-            max-width: 720px;
+            max-width: 760px;
             margin: 4rem auto;
             padding: 0 20px;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 768px) {
+            header {
+                padding: 3.5rem 1rem 2.5rem;
+            }
+            h1 {
+                font-size: 3.2rem;
+                letter-spacing: 2px;
+            }
+            .tagline {
+                font-size: 1.2rem;
+                letter-spacing: 1px;
+            }
+            main {
+                margin: 2.5rem auto;
+                padding: 0 18px;
+            }
+        }
+
+        /* Small phones */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2.8rem;
+            }
         }
     </style>
 </head>
@@ -46,6 +72,8 @@
     </header>
     
     <main>
+        <h2>Welcome</h2>
+        <p>Independent publishing and writing from the hills of Kentucky by G.K. Farmer.</p>
         <p>Site under construction — books, essays, and more coming soon.</p>
     </main>
 </body>
