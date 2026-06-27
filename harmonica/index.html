@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triangular Harmonica Notation</title>
+    <style>
+        body {
+            background-color: #ffffff;
+            color: #333333;
+            font-family: 'Georgia', serif;
+            line-height: 1.7;
+            margin: 0;
+            padding: 40px 20px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin: 0 0 10px 0;
+            color: #1a1a1a;
+        }
+        
+        .subtitle {
+            font-size: 1.35rem;
+            color: #555555;
+            margin: 0 0 50px 0;
+            font-style: italic;
+        }
+        
+        .diagram {
+            display: block;
+            margin: 0 auto 50px auto;
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-radius: 4px;
+        }
+        
+        .content {
+            font-size: 1.1rem;
+            text-align: justify;
+            max-width: 720px;
+            margin: 0 auto;
+        }
+        
+        .content p {
+            margin-bottom: 1.5em;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 80px;
+            padding-top: 30px;
+            border-top: 1px solid #eeeeee;
+        }
+        
+        .email-link {
+            color: #0066cc;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .email-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Triangular Harmonica Notation</h1>
+        <p class="subtitle">A Proof of Concept by G.K. Farmer</p>
+    </div>
+
+    <img src="Notation_Diagram.png" 
+         alt="Triangular Harmonica Notation Diagram" 
+         class="diagram">
+
+    <div class="content">
+        <p>The term "tablature" derives from the Latin tabulatura, itself rooted in tabula, meaning a board, tablet, or list. First documented in Europe circa 1300 as a means of notating organ music, the system subsequently expanded across centuries to encompass the lute, guitar, and a wide range of other instruments. The abbreviated form, "tab," followed naturally, though neither term adequately describes what notation fundamentally is. Notation is a visual language: a symbolic system designed to communicate musical instruction. The terminology, derived from a Latin word for a writing surface, is nonetheless a poor descriptor for what notation actually achieves as a visual communicative system.</p>
+        
+        <p>Existing harmonica notation systems present a practical but limited solution. The most common approach uses plain numbers to indicate blow notes, with a minus sign prefix denoting a draw, so "1" means blow on hole 1, while "-1" means draw on hole 1. This is functional, but visually asymmetrical. The draw note at least carries a symbol; the blow note carries none. Direction of airflow for blow notes is communicated by the absence of marking rather than by any visual indicator, which is a weak foundation for an intuitive reading system.</p>
+        
+        <p>The system proposed here takes a different approach. Each note is rendered as a single triangle glyph: oriented upward to indicate a blow note, downward to indicate a draw, with the corresponding hole number embedded within the shape. Directional instruction and hole position are unified within one symbol. Whether this produces a meaningful improvement in readability remains an open question, and independent evaluation is both welcomed and encouraged. The present document reflects Version 2 of the system, which introduced bend notation absent from the original. Version 3 is intended to incorporate overblows and additional extended techniques. This work is offered as a foundation for further development.</p>
+    </div>
+
+    <div class="footer">
+        <a href="mailto:gkfarmer1983@gmail.com" class="email-link">gkfarmer1983@gmail.com</a>
+    </div>
+</body>
+</html>
