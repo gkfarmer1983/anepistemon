@@ -6,51 +6,63 @@
     <title>Harmonica</title>
     <style>
         body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: "Times New Roman", Times, serif;
             text-align: center;
-            padding: 60px 20px;
+            padding: 80px 20px;
             max-width: 700px;
             margin: 0 auto;
             line-height: 1.6;
+            color: #111;
         }
         h1 {
-            font-size: 3em;
-            margin-bottom: 60px;
-            color: #222;
+            font-size: 3.2em;
+            margin-bottom: 70px;
+            letter-spacing: 0.05em;
+            font-weight: normal;
         }
         .links {
             display: flex;
             flex-direction: column;
-            gap: 30px;
+            gap: 40px;
             align-items: center;
         }
         a {
-            font-size: 1.4em;
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            font-size: 1.5em;
             text-decoration: none;
-            color: #0066cc;
-            padding: 15px 40px;
-            border: 2px solid #0066cc;
-            border-radius: 8px;
-            width: 80%;
-            max-width: 400px;
-            transition: all 0.2s;
+            color: #111;
+            transition: opacity 0.2s;
         }
         a:hover {
-            background-color: #0066cc;
-            color: white;
+            opacity: 0.7;
+        }
+        a img {
+            height: 36px;
+            width: auto;
         }
         @media (max-width: 600px) {
             h1 { font-size: 2.4em; }
+            a { font-size: 1.25em; }
+            a img { height: 28px; }
         }
     </style>
 </head>
 <body>
 
-    <h1>Harmonica</h1>
+    <h1>HARMONICA</h1>
 
     <div class="links">
-        <a href="notation/">Triangular Harmonica Notation</a>
-        <a href="origin/">On the Harmonica's Origin</a>
+        <a href="notation/">
+            <img src="icon_notation.png" alt="Notation icon">
+            Triangular Harmonica Notation
+        </a>
+
+        <a href="origin/">
+            <img src="icon_reed.png" alt="Reed icon">
+            On the Harmonica's Origin
+        </a>
     </div>
 
 </body>
