@@ -10,137 +10,5240 @@ body{display:grid;place-items:center}
 #wrap{position:relative;height:min(calc(100dvh - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)),150vw);aspect-ratio:2/3;background:#000;touch-action:none}
 canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:drop-shadow(0 0 3px rgba(57,255,20,.45))}
 #wrap::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,.22) 0 1px,transparent 1px 3px)}
-#a{position:absolute;right:6%;bottom:5%;width:18%;aspect-ratio:1;border-radius:50%;border:2px solid var(--g);color:var(--g);background:rgba(57,255,20,.08);font:14px "Press Start 2P",monospace;display:grid;place-items:center;z-index:2;opacity:.8}
+#a{position:absolute;right:6%;bottom:5%;width:18%;aspect-ratio:1;border-radius:50%;border:2px solid var(--g);color:var(--g);background:rgba(57,255,20,.08);font:14px "Press Start 2P",monospace;display:grid;place-items:center;z-index:2;opacity:.8;padding:0}
 #a:active{background:rgba(57,255,20,.35)}
 #ring{position:absolute;width:64px;height:64px;margin:-32px 0 0 -32px;border:2px solid var(--g);border-radius:50%;opacity:0;pointer-events:none;z-index:2}
 #knob{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--g)}
 </style></head><body>
-<div id="wrap"><canvas id="c" width="160" height="240"></canvas><div id="ring"><div id="knob"></div></div><div id="a">A</div></div>
+<div id="wrap"><canvas id="c" width="160" height="240"></canvas><div id="ring"><div id="knob"></div></div><button id="a" type="button" aria-label="Attack">A</button></div>
 <script>
-const W=160,H=240,T=16,COLS=10,ROWS=14,OY=16,PH=ROWS*T,SP=1.25;
-const G='#39ff14',M='#0e9c24',D='#07591a';
-const cv=document.getElementById('c'),g=cv.getContext('2d'),wrap=document.getElementById('wrap');
-const B=a=>a;
-const TREES=[["................", "......####......", "....##....##....", "...##......#....", "..#.....#..###..", ".#.....#......#.", ".#..#......#.##.", ".#...#...##...#.", ".#...........##.", "..##....#...##..", "....####.###....", "......#..#......", "......#..#......", ".....##..##.....", "....##..#.##....", "......##.#......"],["................", "......#..#......", "..#..##...#.....", ".##..#..###.##..", "..##.##.#.#..##.", "...##.####..##..", "....#..#...##...", ".#####.#.#####..", "...#.#.##.#.#...", "..##.##.###.##..", "......####......", "......#..#......", "......#..#......", ".....##..##.....", "....##.#..##....", "......##.#......"]];
-const ROCK=["................", "................", "................", ".....######.....", "....##....##....", "...####....##...", "...#..#.##..##..", "..##..###....##.", ".##...#......##.", ".##...#..#...#..", "..#..##..#####..", "..##.#.....##...", "...###....##....", "....###...#.....", "......#####.....", "................"];
-const SHRINE=["................", "................", ".......#........", ".......#........", ".......#........", "......#.#.......", ".....#...#......", "....#..#..#.....", "...#..#.#..#....", "..#....#....#...", ".#############..", ".#...#....#..#..", ".##.#.##.#..##..", "..#....#..#.#...", ".#############..", "................"];
-const WIZ=[".......#........", "......###.......", "......###.......", "....#######.....", "...#########....", ".....#.#.#......", ".....#####......", "....#.###.#.....", "...###...###....", "...#.#######....", "...###.##.##....", ".....#.#..##....", "....#..####.....", "...#########....", "...#########....", "...##..#####...."];
-const SW0=["...##...", "...##...", "...##...", "...##...", "...##...", "...##...", "...##...", "...##...", "...##...", ".#.##.#.", "########", ".#.##.#.", "...##...", "...##...", "..####..", "...##..."];
-const rot=a=>{const h=a.length,w=a[0].length,o=[];for(let i=0;i<w;i++){let r='';for(let j=h-1;j>=0;j--)r+=a[j][i];o.push(r)}return o};
-const SW=[SW0,rot(SW0),rot(rot(SW0)),rot(rot(rot(SW0)))];
-const SWP=[[4,-14],[8,4],[4,10],[-8,4]];
-const EN=["................", ".#.#........#.#.", ".###........###.", "..#...#..#...#..", "..#..##..##..#..", "..############..", "....##.#..##....", "....##....##....", "..############..", "..#.##.##.##.#..", "..##.##..##.##..", "..#.##.##.##.#..", "..#..#....#..#..", "..#..#....#..#..", "..#..#....#..#..", "..#..#....#..#.."];
-const TOUGH=["................", "................", "................", "...#........#...", "....#.####.#....", ".....#.##.#.....", "....#.####.#....", "..###..##..###..", "###.########.###", ".#..#.#..#.#..#.", ".##..#....#..##.", "..#..######..#..", ".##...####...##.", "##..###..###..##", "#..#.##..##.#..#", "#...#.#..#.#...#"];
-const HEART=B([".##..##.","########","########","########",".######.","..####..","...##...","........"]);
-const GEM=B(["...##...","..####..",".######.","########",".######.","..####..","...##...","........"]);
-function spr(a,x,y,c,flip,p=2){g.fillStyle=c;x=Math.round(x);y=Math.round(y);const w=a[0].length;for(let j=0;j<a.length;j++)for(let i=0;i<w;i++)if(a[j][flip?w-1-i:i]==='#')g.fillRect(x+i*p,y+j*p,p,p)}
-function rnd(s){return()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const maps={};
-function map(sx,sy){const k=sx+','+sy;if(maps[k])return maps[k];const r=rnd(sx*91+sy*17+7),m=[];
- for(let y=0;y<ROWS;y++){m[y]=[];for(let x=0;x<COLS;x++){let t=0;
-  const edge=x==0||y==0||x==COLS-1||y==ROWS-1,lane=(y==6||y==7)||(x==4||x==5);
-  if(edge){t=1;if((x==0&&sx>0||x==COLS-1&&sx<2)&&(y==6||y==7))t=0;if((y==0&&sy>0||y==ROWS-1&&sy<2)&&(x==4||x==5))t=0}
-  else if(!lane){const v=r();t=v<.2?1:v<.26?2:0}
-  m[y][x]=t}}
- if(sx==1&&sy==1){for(let j=2;j<=4;j++)for(let i=6;i<=8;i++)m[j][i]=0;m[3][7]=3}
- return maps[k]=m}
-const DX=[0,1,0,-1],DY=[-1,0,1,0];
-let winT=0,sx,sy,cm,p,gems,ens,shots,items,trans,over,win,level,stones,S,msg,msgT,t=0,pa=0,title=1,t0=0,tap=0;
-function reset(){level=1;sx=1;sy=1;cm=map(1,1);p={x:72,y:150,d:0,hp:6,inv:0,atk:0,kb:0,kd:0};gems=0;over=0;win=0;trans=null;msg='';msgT=0;tap=0;t0=t;initLevel();enter()}
-function reach(m){const R=m.map(r=>r.map(()=>0)),q=[[4,6]];R[6][4]=1;
- while(q.length){const[c,r]=q.pop();for(let d=0;d<4;d++){const nc=c+DX[d],nr=r+DY[d];
-  if(nc>=0&&nr>=0&&nc<COLS&&nr<ROWS&&!R[nr][nc]&&m[nr][nc]!=1&&m[nr][nc]!=2){R[nr][nc]=1;q.push([nc,nr])}}}return R}
-function initLevel(){S={};stones=0;for(let j=0;j<3;j++)for(let i=0;i<3;i++){const sc=S[i+','+j]={ens:[],items:[]};if(i==1&&j==1)continue;const m=map(i,j),R=reach(m);
- for(let n=0;n<2;n++){let k=0,c,r;do{c=1+(Math.random()*8|0);r=1+(Math.random()*12|0);k++}while(k<200&&(!R[r][c]||m[r][c]!=0||(c>=3&&c<=6&&(r<=2||r>=11))||((c<=2||c>=7)&&r>=5&&r<=8)||sc.ens.some(e=>e.x==c*T&&e.y==OY+r*T)));
-  sc.ens.push({x:c*T,y:OY+r*T,d:2,t:30,cd:60,hp:1,gs:n==0})}}
- const all=[];for(const k in S)all.push(...S[k].ens);for(let i=all.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[all[i],all[j]]=[all[j],all[i]]}all.slice(0,6).forEach(e=>{e.tg=1;e.hp=2})}
-function enter(){const sc=S[sx+','+sy];ens=sc.ens;items=sc.items;shots=[]}
-function sol(x,y){const c=Math.floor(x/T),r=Math.floor((y-OY)/T);if(c<0||r<0||c>=COLS||r>=ROWS)return 0;const v=cm[r][c];return v==1||v==2}
-function bl(x,y,w,lim){if(lim&&(x<0||y<OY||x+w>W||y+w>OY+PH))return 1;
- for(const[cx,cy]of[[x,y],[x+w-1,y],[x,y+w-1],[x+w-1,y+w-1]])if(sol(cx,cy))return 1;return 0}
-function move(o,dx,dy,ins,lim){let m=0;const w=16-2*ins;
- if(dx){const nx=o.x+dx;if(!bl(nx+ins,o.y+ins,w,lim)){o.x=nx;m=1}}
- if(dy){const ny=o.y+dy;if(!bl(o.x+ins,ny+ins,w,lim)){o.y=ny;m=1}}return m}
-const ov=(ax,ay,aw,ah,bx,by,bw,bh)=>ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;
-function hurt(fx,fy){if(p.inv>0)return;p.hp--;p.inv=70;p.atk=0;p.kb=8;const dx=p.x-fx,dy=p.y-fy;
- p.kd=Math.abs(dx)>Math.abs(dy)?(dx>0?1:3):(dy>0?2:0);if(p.hp<=0)over=1}
-function sword(){const x=p.x,y=p.y;return[[x+5,y-14,6,14],[x+10,y+5,14,6],[x+5,y+12,6,14],[x-8,y+5,14,6]][p.d]}
-function startTrans(dx,dy){trans={dx,dy,p:0,old:cm};sx+=dx;sy+=dy;cm=map(sx,sy);
- if(dx<0)p.x=W-13;if(dx>0)p.x=-3;if(dy<0)p.y=OY+PH-13;if(dy>0)p.y=OY-3;enter()}
-const K={},joy={on:false,id:-1,ox:0,oy:0,x:0,y:0};let touchA=false;
-function dirIn(){let x=joy.x,y=joy.y;if(Math.hypot(x,y)<.35){x=(K.arrowright||K.d?1:0)-(K.arrowleft||K.a?1:0);y=(K.arrowdown||K.s?1:0)-(K.arrowup||K.w?1:0)}
- if(!x&&!y)return null;return Math.abs(x)>Math.abs(y)?(x>0?1:3):(y>0?2:0)}
-const atkIn=()=>touchA||K[' ']||K.z||K.x||K.enter;
-function update(){t++;const a=atkIn();
- if(title){if(a&&!pa||tap){title=0;tap=0;t0=t}pa=a;return}
- if(win)winT++;if(over||win){if(a&&!pa&&(!win||winT>420))reset();pa=a;return}
- if(trans){trans.p+=1/22;if(trans.p>=1)trans=null;pa=a;return}
- if(msgT>0)msgT--;
- if(p.inv>0)p.inv--;
- if(p.kb>0){p.kb--;move(p,DX[p.kd]*2,DY[p.kd]*2,3)}
- else if(p.atk>0)p.atk--;
- else if(a&&!pa)p.atk=14;
- else{const v=dirIn();if(v!=null){p.d=v;move(p,DX[v]*SP,DY[v]*SP,3)}}
- pa=a;
- let dx=0,dy=0;
- if(p.x<-4)dx=-1;else if(p.x>W-12)dx=1;else if(p.y<OY-4)dy=-1;else if(p.y>OY+PH-12)dy=1;
- if(dx||dy){startTrans(dx,dy);return}
- if(p.atk>2&&p.atk<13){const[a1,b1,c1,d1]=sword();
-  for(let i=ens.length-1;i>=0;i--){const e=ens[i];if(ov(a1,b1,c1,d1,e.x+2,e.y+2,12,12)&&!(e.hit>0)){if(--e.hp>0){e.hit=30;e.kb=6;e.kd=p.d}else{ens.splice(i,1);if(e.gs)items.push({x:e.x+4,y:e.y+4,k:2,l:Infinity});else if(Math.random()<.4)items.push({x:e.x+4,y:e.y+4,k:1,l:600})}}}}
- for(const e of ens){if(e.hit>0)e.hit--;if(e.kb>0){e.kb--;move(e,DX[e.kd]*2,DY[e.kd]*2,2,1);continue}
-  if(--e.t<=0){e.d=Math.random()*4|0;e.t=40+Math.random()*60}
-  if(!move(e,DX[e.d]*.6,DY[e.d]*.6,2,1))e.t=0;
-  if(!e.tg&&--e.cd<=0&&Math.random()<.02){shots.push({x:e.x+5,y:e.y+5,d:e.d});e.cd=100}
-  if(ov(p.x+3,p.y+3,10,10,e.x+2,e.y+2,12,12))hurt(e.x,e.y)}
- for(let i=shots.length-1;i>=0;i--){const s=shots[i];s.x+=DX[s.d]*1.6;s.y+=DY[s.d]*1.6;
-  if(s.x<0||s.x>W-6||s.y<OY||s.y>OY+PH-6||sol(s.x+3,s.y+3)){shots.splice(i,1);continue}
-  if(ov(p.x+3,p.y+3,10,10,s.x,s.y,6,6)){hurt(s.x,s.y);shots.splice(i,1)}}
- for(let i=items.length-1;i>=0;i--){const it=items[i];if(--it.l<=0){items.splice(i,1);continue}
-  const sz=8;if(ov(p.x+3,p.y+3,10,10,it.x,it.y,sz,sz)){if(it.k==2)stones++;else if(it.k)p.hp=Math.min(6,p.hp+2);else gems=Math.min(999,gems+1);items.splice(i,1)}}
- const tc=Math.floor((p.x+8)/T),tr=Math.floor((p.y+8-OY)/T);
- if(cm[tr]&&cm[tr][tc]==3){if(stones>=8){if(level<3){level++;initLevel();sx=1;sy=1;cm=map(1,1);p.x=72;p.y=150;p.hp=6;enter();msg='Level '+level;msgT=150}else{win=1;winT=0}}else if(msgT==0){msg='NEED 8 GEMSTONES';msgT=90}}}
-function drawMap(m,ox,oy){for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){const v=m[r][c],x=c*T+ox,y=OY+r*T+oy;
- if(v==1)spr(TREES[(c*5+r*3)%3==0?1:0],x,y,M,0,1);else if(v==2)spr(ROCK,x,y,M,0,1);else if(v==3)spr(SHRINE,x,y,G,0,1);
- else if((c*7+r*13)%11==0){g.fillStyle=D;g.fillRect(Math.round(x)+7,Math.round(y)+7,2,2)}}}
-function txt(s,x,y,c,al){g.font='8px "Press Start 2P",monospace';g.textBaseline='top';g.textAlign=al||'left';g.fillStyle=c;g.fillText(s,x,y)}
-function drawWin(){g.fillStyle='#000';g.fillRect(0,0,W,H);
- const L=['gz...','you are the goat.'];let n=0;
- L.forEach((ln,li)=>{const x0=80-ln.length*4;for(let k=0;k<ln.length;k++,n++){const al=Math.max(0,Math.min(1,(winT-50-n*8)/45));if(al<=0)continue;g.globalAlpha=al;txt(ln[k],x0+k*8,100+li*18,li?G:M,'left')}});
- g.globalAlpha=1;if(winT>420&&((t>>5)&1))txt('TAP A',80,170,D,'center')}
-function draw(){
- if(win){drawWin();return}
- if(title){g.fillStyle='#000';g.fillRect(0,0,W,H);txt('The',80,102,M,'center');g.save();g.scale(2,2);txt('Wizard',40,58,G,'center');g.restore();if((t>>5)&1)txt('Tap A to start',80,160,M,'center');return}g.fillStyle='#000';g.fillRect(0,0,W,H);
- g.save();g.beginPath();g.rect(0,OY,W,PH);g.clip();
- let ox=0,oy=0;
- if(trans){const q=1-trans.p;ox=trans.dx*W*q;oy=trans.dy*PH*q;drawMap(trans.old,-trans.dx*W*trans.p,-trans.dy*PH*trans.p)}
- drawMap(cm,ox,oy);
- if(!trans){
-  for(const it of items){if(it.k==2)spr(GEM,it.x,it.y+((t>>5)&1),G,0,1);else if(it.l>120||(t>>3)&1)spr(it.k?HEART:GEM,it.x,it.y,G,0,1)}
-  for(const e of ens)if(!(e.hit>0)||(t>>2)&1)spr(e.tg?TOUGH:EN,e.x,e.y+((t>>4)&1),G,0,1);
-  g.fillStyle=G;for(const s of shots)g.fillRect(Math.round(s.x),Math.round(s.y),6,6)}
- if(p.inv<=0||(t>>2)&1){spr(WIZ,p.x+ox,p.y+oy,G,p.d==3,1)}
- if(!trans&&p.atk>2&&p.atk<13)spr(SW[p.d],p.x+SWP[p.d][0],p.y+SWP[p.d][1],G,0,1)
- if(msgT>0){const w=msg.length*8+16,y=OY+PH/2-12;g.fillStyle='#000';g.fillRect(80-w/2,y,w,24);g.strokeStyle=G;g.lineWidth=1;g.strokeRect(80-w/2+.5,y+.5,w-1,23);txt(msg,80,y+8,G,'center')}
- g.restore();
- g.fillStyle='#000';g.fillRect(0,0,W,OY);g.fillStyle=D;g.fillRect(0,OY-1,W,1);
- for(let i=0;i<3;i++)spr(HEART,4+i*10,4,p.hp>=2*i+2?G:p.hp==2*i+1?M:D,0,1);
- spr(GEM,46,4,G,0,1);txt(stones+'/8',56,4,stones>=8?G:M);txt('L'+level,116,4,G);
- for(let j=0;j<3;j++)for(let i=0;i<3;i++){g.fillStyle=i==sx&&j==sy?G:D;g.fillRect(136+i*6,2+j*4,5,3)}
- if(over||win){g.fillStyle='rgba(0,0,0,.75)';g.fillRect(0,OY,W,PH);txt(win?'YOU WIN!':'GAME OVER',80,100,G,'center');txt('TAP A',80,124,M,'center')}}
-let last=0,acc=0;
-function loop(ts){acc+=Math.min(ts-last,100);last=ts;while(acc>=16.67){update();acc-=16.67}draw();requestAnimationFrame(loop)}
-reset();requestAnimationFrame(loop);
-addEventListener('keydown',e=>{const k=e.key.length==1?e.key.toLowerCase():e.key.toLowerCase();K[k]=1;if(k.startsWith('arrow')||k==' ')e.preventDefault()});
-addEventListener('keyup',e=>{K[e.key.toLowerCase()]=0});
-const ring=document.getElementById('ring'),knob=document.getElementById('knob'),btn=document.getElementById('a');
-wrap.addEventListener('pointerdown',()=>{tap=1});
-wrap.addEventListener('pointerdown',e=>{if(e.target===btn||joy.on)return;const r=wrap.getBoundingClientRect();
- if(e.clientX-r.left>r.width*.6)return;joy.on=true;joy.id=e.pointerId;joy.ox=e.clientX;joy.oy=e.clientY;
- ring.style.left=(e.clientX-r.left)+'px';ring.style.top=(e.clientY-r.top)+'px';ring.style.opacity=.7;try{wrap.setPointerCapture(e.pointerId)}catch(_){}});
-wrap.addEventListener('pointermove',e=>{if(!joy.on||e.pointerId!==joy.id)return;let dx=(e.clientX-joy.ox)/32,dy=(e.clientY-joy.oy)/32;const m=Math.hypot(dx,dy);if(m>1){dx/=m;dy/=m}
- joy.x=dx;joy.y=dy;knob.style.transform=`translate(${dx*22}px,${dy*22}px)`});
-const end=e=>{if(e.pointerId!==joy.id)return;joy.on=false;joy.x=joy.y=0;ring.style.opacity=0;knob.style.transform=''};
-wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);
-btn.addEventListener('pointerdown',e=>{e.stopPropagation();touchA=true;try{btn.setPointerCapture(e.pointerId)}catch(_){}});
-['pointerup','pointercancel'].forEach(n=>btn.addEventListener(n,()=>{touchA=false}));
+(function() {
+	//#region src/game/finalLevel.ts
+	const W = 160;
+	const H = 240;
+	const T = 16;
+	const COLS = 10;
+	const ROWS = 14;
+	const OY = 16;
+	const PH = 224;
+	const SP = 1.25;
+	const G = "#39ff14";
+	const M = "#0e9c24";
+	const D = "#07591a";
+	const ROOM = [
+		"WWWWWWWWWW",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"W........W",
+		"WWWWWWWWWW"
+	];
+	const WALL = [
+		"################",
+		"###..........###",
+		"###...#...#..###",
+		"#..#........#..#",
+		"#...#...#..#...#",
+		"#.#..#....#....#",
+		"#.....#..#...#.#",
+		"#..#...##..#...#",
+		"#....#.##......#",
+		"#.#...#..#..#..#",
+		"#....#....#....#",
+		"#...#..#...#...#",
+		"#..#........#..#",
+		"###..#...#...###",
+		"###..........###",
+		"################"
+	];
+	const WIZ = [
+		".......#........",
+		"......###.......",
+		"......###.......",
+		"....#######.....",
+		"...#########....",
+		".....#.#.#......",
+		".....#####......",
+		"....#.###.#.....",
+		"...###...###....",
+		"...#.#######....",
+		"...###.##.##....",
+		".....#.#..##....",
+		"....#..####.....",
+		"...#########....",
+		"...#########....",
+		"...##..#####...."
+	];
+	const SW0 = [
+		"...##...",
+		"...##...",
+		"...##...",
+		"...##...",
+		"...##...",
+		"...##...",
+		"...##...",
+		"...##...",
+		"...##...",
+		".#.##.#.",
+		"########",
+		".#.##.#.",
+		"...##...",
+		"...##...",
+		"..####..",
+		"...##..."
+	];
+	const HEART = [
+		".##..##.",
+		"########",
+		"########",
+		"########",
+		".######.",
+		"..####..",
+		"...##...",
+		"........"
+	];
+	const DOG_BODY = [
+		"................",
+		"................",
+		"................",
+		".............#..",
+		"......#......#..",
+		".######.....#...",
+		"..#####.....#...",
+		"..#.#.#######...",
+		"..#...#######...",
+		"..###########...",
+		"....#########..."
+	];
+	const DOG_LEGS = [
+		[
+			[4, 11],
+			[3, 12],
+			[4, 12],
+			[3, 13]
+		],
+		[
+			[6, 11],
+			[6, 12],
+			[6, 13]
+		],
+		[
+			[9, 11],
+			[9, 12],
+			[9, 13]
+		],
+		[
+			[12, 11],
+			[12, 12],
+			[13, 12],
+			[13, 13]
+		]
+	];
+	const RAT_ORIG = [
+		"................",
+		"................",
+		"................",
+		"................",
+		"................",
+		"...........#....",
+		"............#...",
+		".............#..",
+		"....#.####...#..",
+		"...########.#...",
+		"..##########....",
+		".....#....#.....",
+		"................",
+		"................",
+		"................",
+		"................"
+	];
+	const RAT_FEET = {
+		land: [[5, 11], [10, 11]],
+		gather: [[6, 11], [9, 11]],
+		push: [[4, 11], [11, 11]],
+		air: [[5, 10], [10, 10]]
+	};
+	const RAT_TIPS = [
+		[[11, 5], [12, 6]],
+		[[12, 5], [12, 6]],
+		[[13, 5], [13, 6]],
+		[[12, 5], [12, 6]]
+	];
+	const RAT_MOVING = /* @__PURE__ */ new Set([
+		"5,11",
+		"10,11",
+		"11,5",
+		"12,6"
+	]);
+	const RAT_STEPS = [
+		"gather",
+		"push",
+		"air",
+		"land"
+	];
+	function rot(a) {
+		const h = a.length;
+		const w = a[0].length;
+		const o = [];
+		for (let i = 0; i < w; i++) {
+			let r = "";
+			for (let j = h - 1; j >= 0; j--) r += a[j][i];
+			o.push(r);
+		}
+		return o;
+	}
+	const SW = [
+		SW0,
+		rot(SW0),
+		rot(rot(SW0)),
+		rot(rot(rot(SW0)))
+	];
+	const SWP = [
+		[4, -14],
+		[8, 4],
+		[4, 10],
+		[-8, 4]
+	];
+	function dots(rows, skip) {
+		const out = [];
+		rows.forEach((r, y) => [...r].forEach((c, x) => {
+			if (c === "#" && !skip?.has(x + "," + y)) out.push([x, y]);
+		}));
+		return out;
+	}
+	const FIRE_ORIG = [
+		"................",
+		"......#.........",
+		"....#.#..#......",
+		".....#..#.......",
+		"...#..#.#.#.....",
+		"......#.#.......",
+		"...#.#...#.#....",
+		"..#.#..#..#.#...",
+		"..#...#.#...#...",
+		"...##.....##....",
+		"...#.##.##.#....",
+		"...##.#.#.##....",
+		"....#.....#.....",
+		".....#####......",
+		"................",
+		"................"
+	];
+	const FIRE_CELLS = [];
+	FIRE_ORIG.forEach((r, y) => [...r].forEach((c, x) => {
+		if (c === "#") FIRE_CELLS.push([x, y]);
+	}));
+	const FIRE_FLAME = FIRE_CELLS.filter(([, y]) => y >= 1 && y <= 5);
+	const FIRE_INNER = [
+		[5, 6],
+		[9, 6],
+		[4, 7],
+		[7, 7],
+		[10, 7],
+		[6, 8],
+		[8, 8]
+	];
+	const FIRE_INNER_KEY = new Set(FIRE_INNER.map(([x, y]) => x + "," + y));
+	const FIRE_BODY = FIRE_CELLS.filter(([x, y]) => !(y >= 1 && y <= 5) && !FIRE_INNER_KEY.has(x + "," + y));
+	const FIRE_LIFT = [
+		0,
+		0,
+		-1,
+		-1,
+		0,
+		0
+	];
+	function firePose(f, bob) {
+		return [
+			...FIRE_FLAME.map(([x, y]) => [x, (y - f + 6) % 6]),
+			...FIRE_INNER.map(([x, y]) => [x, y + FIRE_LIFT[f] + bob]),
+			...FIRE_BODY.map(([x, y]) => [x, y + bob])
+		];
+	}
+	const RAT_BODY = dots(RAT_ORIG, RAT_MOVING);
+	function ratPose(step, tip) {
+		const dy = step === "air" ? -1 : 0;
+		return [
+			...RAT_BODY,
+			...RAT_TIPS[tip],
+			...RAT_FEET[step]
+		].map(([x, y]) => [x, y + dy]);
+	}
+	const RAT_POSES = [];
+	for (const step of RAT_STEPS) for (let tip = 0; tip < 4; tip++) RAT_POSES.push(ratPose(step, tip));
+	function dogPose(step) {
+		const lift = step === 1 ? [0, 2] : step === 3 ? [1, 3] : [];
+		const body = dots(DOG_BODY);
+		const legs = [];
+		DOG_LEGS.forEach((leg, i) => leg.forEach(([x, y]) => {
+			if (!(lift.includes(i) && y === 13)) legs.push([x, y]);
+		}));
+		return {
+			body,
+			legs
+		};
+	}
+	const DOG_POSES = [
+		0,
+		1,
+		2,
+		3
+	].map(dogPose);
+	const DOG_SIT = [];
+	{
+		const stand = dogPose(0);
+		for (const [x, y] of stand.body) DOG_SIT.push([x, y + 2]);
+		for (const [x, y] of stand.legs) if (x < 8) {
+			if (y >= 12) DOG_SIT.push([Math.max(0, x - 1), 12]);
+			else DOG_SIT.push([x, y + 1]);
+		} else if (y < 13) DOG_SIT.push([x, y + 2]);
+		else DOG_SIT.push([x, 13]);
+	}
+	const DX = [
+		0,
+		1,
+		0,
+		-1
+	];
+	const DY = [
+		-1,
+		0,
+		1,
+		0
+	];
+	function runFinal(canvas, wrap, opts) {
+		const ctx = canvas.getContext("2d");
+		if (!ctx) throw new Error("no canvas");
+		const g = ctx;
+		const ring = wrap.querySelector("#ring");
+		const knob = wrap.querySelector("#knob");
+		const btn = wrap.querySelector("#a");
+		const K = {};
+		const joy = {
+			on: false,
+			id: -1,
+			ox: 0,
+			oy: 0,
+			x: 0,
+			y: 0
+		};
+		let touchA = false;
+		let tap = 0;
+		let dead = false;
+		let raf = 0;
+		let ac = null;
+		let t = 0;
+		let pa = false;
+		let mode = "play";
+		let endT = 0;
+		let shake = 0;
+		let friendA = 0;
+		let goatA = 0;
+		let againA = 0;
+		let black = 0;
+		let spiritX = 0;
+		let spiritY = 0;
+		let satAt = -1;
+		let seatX = 0;
+		let seatY = 0;
+		let sung = false;
+		const p = {
+			x: 72,
+			y: 176,
+			d: 0,
+			hp: 6,
+			inv: 0,
+			atk: 0,
+			kb: 0,
+			kd: 0,
+			vx: 0,
+			vy: 0
+		};
+		let dog = {
+			x: 72,
+			y: 96,
+			flip: false,
+			hp: 10,
+			hit: 0,
+			kb: 0,
+			kd: 0,
+			wt: 0,
+			wd: 0,
+			mv: 0
+		};
+		let rats = [];
+		let items = [];
+		let sparks = [];
+		function unlock() {
+			if (ac) return;
+			const Ctx = window.AudioContext || window.webkitAudioContext;
+			if (!Ctx) return;
+			ac = new Ctx();
+			ac.resume();
+		}
+		function beep(freq, dur, type, gain) {
+			if (!ac) return;
+			const o = ac.createOscillator();
+			const gn = ac.createGain();
+			o.type = type;
+			o.frequency.value = freq;
+			gn.gain.setValueAtTime(gain, ac.currentTime);
+			gn.gain.exponentialRampToValueAtTime(.001, ac.currentTime + dur);
+			o.connect(gn);
+			gn.connect(ac.destination);
+			o.start();
+			o.stop(ac.currentTime + dur);
+		}
+		function burst(x, y, n) {
+			for (let i = 0; i < n; i++) {
+				const a = Math.PI * 2 * i / n;
+				sparks.push({
+					x,
+					y,
+					dx: Math.cos(a) * 1.4,
+					dy: Math.sin(a) * 1.4,
+					l: 16
+				});
+			}
+		}
+		function spawn() {
+			mode = "play";
+			endT = 0;
+			black = 0;
+			friendA = 0;
+			goatA = 0;
+			againA = 0;
+			sung = false;
+			satAt = -1;
+			shake = 0;
+			p.x = 72;
+			p.y = 176;
+			p.d = 0;
+			p.hp = 6;
+			p.inv = 40;
+			p.atk = 0;
+			p.kb = 0;
+			p.kd = 0;
+			p.vx = 0;
+			p.vy = 0;
+			dog = {
+				x: 72,
+				y: 80,
+				flip: false,
+				hp: 10,
+				hit: 0,
+				kb: 0,
+				kd: 0,
+				wt: 0,
+				wd: 0,
+				mv: 0
+			};
+			rats = [
+				[24, 48],
+				[120, 48],
+				[24, 144],
+				[120, 144]
+			].map(([x, y], i) => ({
+				x,
+				y,
+				d: i,
+				t: 20 + i * 7,
+				flip: false,
+				hit: 0,
+				kb: 0,
+				kd: 0,
+				fade: 0,
+				mv: 0
+			}));
+			items = [];
+			sparks = [];
+		}
+		function spr(a, x, y, c, flip = false) {
+			g.fillStyle = c;
+			const X = Math.round(x);
+			const Y = Math.round(y);
+			const w = a[0].length;
+			for (let j = 0; j < a.length; j++) for (let i = 0; i < w; i++) if (a[j][flip ? w - 1 - i : i] === "#") g.fillRect(X + i, Y + j, 1, 1);
+		}
+		function pix(pts, x, y, c, flip, alpha = 1) {
+			g.globalAlpha = alpha;
+			g.fillStyle = c;
+			const X = Math.round(x);
+			const Y = Math.round(y);
+			for (const [px, py] of pts) g.fillRect(X + (flip ? 15 - px : px), Y + py, 1, 1);
+			g.globalAlpha = 1;
+		}
+		function solid(x, y) {
+			const c = Math.floor(x / T);
+			const r = Math.floor((y - OY) / T);
+			if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return true;
+			return ROOM[r][c] === "W";
+		}
+		function blocked(x, y, w, lim) {
+			if (lim && (x < 0 || y < OY || x + w > W || y + w > 240)) return true;
+			for (const [cx, cy] of [
+				[x, y],
+				[x + w - 1, y],
+				[x, y + w - 1],
+				[x + w - 1, y + w - 1]
+			]) if (solid(cx, cy)) return true;
+			return false;
+		}
+		function move(o, dx, dy, ins) {
+			let m = 0;
+			const w = 16 - 2 * ins;
+			if (dx) {
+				const nx = o.x + dx;
+				if (!blocked(nx + ins, o.y + ins, w, true)) {
+					o.x = nx;
+					m = 1;
+				}
+			}
+			if (dy) {
+				const ny = o.y + dy;
+				if (!blocked(o.x + ins, ny + ins, w, true)) {
+					o.y = ny;
+					m = 1;
+				}
+			}
+			return m;
+		}
+		const ov = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+		function hurt(fx, fy) {
+			if (p.inv > 0 || mode !== "play") return;
+			p.hp--;
+			p.inv = 70;
+			p.atk = 0;
+			p.kb = 8;
+			const dx = p.x - fx;
+			const dy = p.y - fy;
+			p.kd = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 1 : 3 : dy > 0 ? 2 : 0;
+			shake = Math.max(shake, 2);
+			beep(90, .12, "square", .04);
+			if (p.hp <= 0) mode = "dead";
+		}
+		function sword() {
+			const x = p.x;
+			const y = p.y;
+			return [
+				[
+					x + 5,
+					y - 14,
+					6,
+					14
+				],
+				[
+					x + 10,
+					y + 5,
+					14,
+					6
+				],
+				[
+					x + 5,
+					y + 12,
+					6,
+					14
+				],
+				[
+					x - 8,
+					y + 5,
+					14,
+					6
+				]
+			][p.d];
+		}
+		function dirIn() {
+			let x = joy.x;
+			let y = joy.y;
+			if (Math.hypot(x, y) < .35) {
+				x = (K.arrowright || K.d ? 1 : 0) - (K.arrowleft || K.a ? 1 : 0);
+				y = (K.arrowdown || K.s ? 1 : 0) - (K.arrowup || K.w ? 1 : 0);
+			}
+			if (!x && !y) return null;
+			return Math.abs(x) > Math.abs(y) ? x > 0 ? 1 : 3 : y > 0 ? 2 : 0;
+		}
+		const atkIn = () => touchA || !!K[" "] || !!K.z || !!K.x || !!K.enter;
+		function chase(e, sp) {
+			let mv = 0;
+			if (e.wt > 0) {
+				e.wt--;
+				mv = move(e, DX[e.wd] * sp, DY[e.wd] * sp, 2);
+				if (!mv) e.wt = 0;
+			} else {
+				const dx = p.x - e.x;
+				const dy = p.y - e.y;
+				const ax = Math.abs(dx);
+				const ay = Math.abs(dy);
+				const h = dx > 0 ? 1 : 3;
+				const v = dy > 0 ? 2 : 0;
+				const a = ax > ay ? h : v;
+				const b = ax > ay ? v : h;
+				mv = move(e, DX[a] * sp, DY[a] * sp, 2);
+				if (!mv && Math.min(ax, ay) > 3) mv = move(e, DX[b] * sp, DY[b] * sp, 2);
+				if (!mv) {
+					e.wd = Math.random() * 4 | 0;
+					e.wt = 12 + (Math.random() * 16 | 0);
+				}
+			}
+			e.mv = mv;
+			return mv;
+		}
+		function startOutro() {
+			if (mode === "outro") return;
+			mode = "outro";
+			endT = 0;
+			satAt = -1;
+			spiritX = dog.x;
+			spiritY = dog.y;
+			let tx = dog.x <= p.x ? p.x - 16 : p.x + 16;
+			if (tx < 16) tx = p.x + 16;
+			if (tx > 128) tx = p.x - 16;
+			if (tx < 16) tx = 16;
+			seatX = tx;
+			seatY = p.y;
+			for (const r of rats) r.fade = 1;
+			beep(392, .18, "triangle", .04);
+		}
+		function stepHome() {
+			if (satAt >= 0) {
+				dog.mv = 0;
+				dog.flip = p.x < dog.x;
+				return;
+			}
+			const dx = seatX - dog.x;
+			const dy = seatY - dog.y;
+			const dist = Math.hypot(dx, dy);
+			if (dist < 3 || endT > 110) {
+				if (dist < 10) {
+					dog.x = seatX;
+					dog.y = seatY;
+				}
+				satAt = endT;
+				dog.mv = 0;
+				dog.flip = p.x < dog.x;
+				p.d = dog.x < p.x ? 3 : 1;
+				return;
+			}
+			const sp = 1.35;
+			const ax = Math.abs(dx);
+			const ay = Math.abs(dy);
+			const h = dx > 0 ? 1 : 3;
+			const v = dy > 0 ? 2 : 0;
+			const a = ax >= ay ? h : v;
+			const b = ax >= ay ? v : h;
+			let mv = move(dog, DX[a] * sp, DY[a] * sp, 2);
+			if (!mv) mv = move(dog, DX[b] * sp, DY[b] * sp, 2);
+			dog.mv = mv;
+			dog.flip = dx < 0;
+		}
+		function update() {
+			t++;
+			const a = atkIn();
+			if (mode === "dead") {
+				if (a && !pa || tap) spawn();
+				pa = a;
+				tap = 0;
+				return;
+			}
+			if (mode === "outro") {
+				endT++;
+				stepHome();
+				const local = satAt < 0 ? -1 : endT - satAt;
+				if (local < 36) {
+					spiritX = dog.x;
+					spiritY = dog.y;
+				}
+				black = local < 150 ? 0 : Math.min(1, (local - 150) / 80);
+				friendA = Math.max(0, Math.min(1, (local - 250) / 55));
+				goatA = Math.max(0, Math.min(1, (local - 345) / 55));
+				againA = Math.max(0, Math.min(1, (local - 470) / 50));
+				for (const r of rats) if (r.fade > 0) r.fade = Math.min(1, r.fade + .04);
+				if (!sung && local === 70) {
+					sung = true;
+					beep(392, .7, "sine", .04);
+					beep(523, 1.1, "sine", .03);
+				}
+				if ((tap || a && !pa) && local > 500) {
+					if (opts?.onReplay) opts.onReplay();
+					else spawn();
+				}
+				pa = a;
+				tap = 0;
+				if (shake > 0) shake *= .86;
+				for (let i = sparks.length - 1; i >= 0; i--) {
+					const s = sparks[i];
+					s.x += s.dx;
+					s.y += s.dy;
+					s.l--;
+					if (s.l <= 0) sparks.splice(i, 1);
+				}
+				return;
+			}
+			if (p.inv > 0) p.inv--;
+			p.vx = 0;
+			p.vy = 0;
+			if (p.kb > 0) {
+				p.kb--;
+				move(p, DX[p.kd] * 2, DY[p.kd] * 2, 3);
+			} else if (p.atk > 0) p.atk--;
+			else if (a && !pa) {
+				p.atk = 14;
+				unlock();
+				beep(520, .05, "square", .03);
+			} else {
+				const v = dirIn();
+				if (v != null) {
+					p.d = v;
+					const dx = DX[v] * SP;
+					const dy = DY[v] * SP;
+					move(p, dx, dy, 3);
+					p.vx = dx;
+					p.vy = dy;
+				}
+			}
+			pa = a;
+			if (shake > 0) shake *= .8;
+			if (p.atk > 2 && p.atk < 13) {
+				const [a1, b1, c1, d1] = sword();
+				if (dog.hit <= 0 && ov(a1, b1, c1, d1, dog.x + 2, dog.y + 2, 12, 12)) {
+					dog.hp--;
+					dog.hit = 16;
+					dog.kb = 5;
+					dog.kd = p.d;
+					shake = Math.max(shake, 2.5);
+					beep(180 + dog.hp * 18, .08, "square", .05);
+					if (dog.hp <= 0) startOutro();
+				}
+				for (let i = rats.length - 1; i >= 0; i--) {
+					const e = rats[i];
+					if (e.hit > 0) continue;
+					if (ov(a1, b1, c1, d1, e.x + 2, e.y + 2, 12, 12)) {
+						rats.splice(i, 1);
+						burst(e.x + 8, e.y + 8, 7);
+						beep(680, .07, "square", .04);
+						if (Math.random() < .5) items.push({
+							x: e.x + 4,
+							y: e.y + 4,
+							l: 700
+						});
+					}
+				}
+			}
+			if (mode === "play") {
+				if (dog.hit > 0) dog.hit--;
+				if (dog.kb > 0) {
+					dog.kb--;
+					move(dog, DX[dog.kd] * 1.6, DY[dog.kd] * 1.6, 2);
+				} else chase(dog, .62);
+				if (p.x < dog.x - 1) dog.flip = true;
+				else if (p.x > dog.x + 1) dog.flip = false;
+				if (ov(p.x + 3, p.y + 3, 10, 10, dog.x + 2, dog.y + 2, 12, 12)) hurt(dog.x, dog.y);
+			}
+			for (const e of rats) {
+				if (e.hit > 0) e.hit--;
+				if (e.kb > 0) {
+					e.kb--;
+					move(e, DX[e.kd] * 2, DY[e.kd] * 2, 2);
+					continue;
+				}
+				if (--e.t <= 0) {
+					if (Math.random() < .45) {
+						const dx = p.x - e.x;
+						const dy = p.y - e.y;
+						e.d = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 1 : 3 : dy > 0 ? 2 : 0;
+					} else e.d = Math.random() * 4 | 0;
+					e.t = 28 + (Math.random() * 40 | 0);
+				}
+				const sp = .8;
+				e.mv = move(e, DX[e.d] * sp, DY[e.d] * sp, 2);
+				if (!e.mv) e.t = 0;
+				if (e.d === 1) e.flip = true;
+				else if (e.d === 3) e.flip = false;
+				if (ov(p.x + 3, p.y + 3, 10, 10, e.x + 2, e.y + 2, 12, 12)) hurt(e.x, e.y);
+			}
+			for (let i = items.length - 1; i >= 0; i--) {
+				const it = items[i];
+				if (--it.l <= 0) {
+					items.splice(i, 1);
+					continue;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, it.x, it.y, 8, 8)) {
+					p.hp = Math.min(6, p.hp + 2);
+					beep(740, .08, "square", .04);
+					items.splice(i, 1);
+				}
+			}
+			for (let i = sparks.length - 1; i >= 0; i--) {
+				const s = sparks[i];
+				s.x += s.dx;
+				s.y += s.dy;
+				s.l--;
+				if (s.l <= 0) sparks.splice(i, 1);
+			}
+			tap = 0;
+		}
+		function txtFit(s, y, c, alpha, scale = 1) {
+			if (alpha <= 0) return;
+			g.save();
+			g.globalAlpha = alpha;
+			g.font = "8px \"Press Start 2P\", monospace";
+			const w = g.measureText(s).width;
+			const sc = Math.min(scale, w > 150 ? 150 / w : scale);
+			g.translate(80, y);
+			g.scale(sc, sc);
+			g.textAlign = "center";
+			g.textBaseline = "top";
+			g.fillStyle = c;
+			g.fillText(s, 0, 0);
+			g.restore();
+		}
+		function draw() {
+			const sx = shake > .2 ? ((t & 1) * 2 - 1) * Math.min(2, shake) : 0;
+			const sy = shake > .2 ? ((t & 2) - 1) * Math.min(1, shake * .5) : 0;
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			g.save();
+			g.beginPath();
+			g.rect(0, OY, W, PH);
+			g.clip();
+			g.translate(sx, sy);
+			for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+				const x = c * T;
+				const y = OY + r * T;
+				if (ROOM[r][c] === "W") spr(WALL, x, y, M);
+				else if ((c * 7 + r * 13) % 11 === 0) {
+					g.fillStyle = D;
+					g.fillRect(x + 7, y + 7, 2, 2);
+				}
+			}
+			for (const it of items) if (it.l > 120 || t >> 3 & 1) spr(HEART, it.x, it.y, G);
+			for (const e of rats) {
+				const alpha = e.fade > 0 ? Math.max(0, 1 - e.fade) : 1;
+				if (alpha <= 0) continue;
+				if (e.hit > 0 && !(t >> 2 & 1)) continue;
+				const step = e.mv ? (Math.floor(t / 5) + e.d) % 4 : 3;
+				const tip = Math.floor(t / 8) % 4;
+				pix(RAT_POSES[step * 4 + tip], e.x, e.y, G, e.flip, alpha);
+			}
+			if (mode !== "outro" || black < 1) {
+				const pose = dog.mv && (mode === "play" || satAt < 0) ? DOG_POSES[Math.floor(t / (mode === "outro" ? 8 : 10)) % 4] : DOG_POSES[0];
+				if (!(dog.hit > 0 && mode === "play" && !(t >> 1 & 1)) && (dog.hp > 0 || mode === "outro" && satAt < 0)) pix(pose.body.concat(pose.legs), dog.x, dog.y, G, dog.flip);
+				if (mode === "outro" && satAt >= 0) pix(DOG_SIT, dog.x, dog.y, G, dog.flip);
+				if (mode === "outro") {
+					const local = satAt < 0 ? -1 : endT - satAt;
+					const rise = Math.max(0, local - 40) * .55;
+					const sa = local < 36 ? 0 : local < 70 ? (local - 36) / 34 : Math.max(0, 1 - (local - 80) / 120);
+					if (sa > 0) {
+						pix(firePose(Math.floor(local / 6) % 6, Math.floor(local / 36) % 2), spiritX, spiritY - rise, G, false, sa);
+						g.globalAlpha = sa * .7;
+						g.fillStyle = G;
+						for (let i = 0; i < 4; i++) {
+							const yy = spiritY + 8 - rise - i * 6 - local % 8;
+							g.fillRect(Math.round(spiritX + 6 + (i & 1 ? 3 : -1)), Math.round(yy), 1, 1);
+						}
+						g.globalAlpha = 1;
+					}
+				}
+			}
+			g.fillStyle = G;
+			for (const s of sparks) if (s.l >> 1 & 1 || s.l > 6) g.fillRect(Math.round(s.x), Math.round(s.y), 1, 1);
+			if (p.inv <= 0 || t >> 2 & 1) spr(WIZ, p.x, p.y, G, p.d === 3);
+			if (mode === "play" && p.atk > 2 && p.atk < 13) spr(SW[p.d], p.x + SWP[p.d][0], p.y + SWP[p.d][1], G);
+			g.restore();
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, OY);
+			g.fillStyle = D;
+			g.fillRect(0, 15, W, 1);
+			for (let i = 0; i < 3; i++) spr(HEART, 4 + i * 10, 4, p.hp >= 2 * i + 2 ? G : p.hp === 2 * i + 1 ? M : D);
+			for (let i = 0; i < 10; i++) {
+				g.fillStyle = i < dog.hp ? G : D;
+				g.fillRect(78 + i % 10 * 7, 5, 5, 5);
+			}
+			if (black > 0) {
+				g.fillStyle = `rgba(0,0,0,${black})`;
+				g.fillRect(0, 0, W, H);
+			}
+			if (mode === "outro" && black > .92) {
+				txtFit("best friend.. saved", 78, G, friendA);
+				txtFit("you are the goat", 104, G, goatA);
+				txtFit("play again?", 156, M, againA, .62);
+			}
+			if (mode === "dead") {
+				g.fillStyle = "rgba(0,0,0,.75)";
+				g.fillRect(0, OY, W, PH);
+				txtFit("GAME OVER", 100, G, 1);
+				txtFit("TAP A", 124, M, t >> 4 & 1 ? 1 : .35);
+			}
+		}
+		let last = 0;
+		let acc = 0;
+		function loop(ts) {
+			if (dead) return;
+			acc += Math.min(ts - last, 100);
+			last = ts;
+			while (acc >= 16.67) {
+				update();
+				acc -= 16.67;
+				if (dead) return;
+			}
+			draw();
+			raf = requestAnimationFrame(loop);
+		}
+		function keyName(e) {
+			return e.key.length === 1 ? e.key.toLowerCase() : e.key.toLowerCase();
+		}
+		const down = (e) => {
+			unlock();
+			const k = keyName(e);
+			K[k] = 1;
+			if (k.startsWith("arrow") || k === " ") e.preventDefault();
+		};
+		const up = (e) => {
+			K[keyName(e)] = 0;
+		};
+		const blur = () => {
+			for (const k of Object.keys(K)) K[k] = 0;
+			touchA = false;
+			joy.on = false;
+			joy.x = joy.y = 0;
+		};
+		const poke = () => {
+			tap = 1;
+			unlock();
+		};
+		const joyDown = (e) => {
+			if (e.target === btn || joy.on) return;
+			const r = wrap.getBoundingClientRect();
+			if (e.clientX - r.left > r.width * .6) return;
+			joy.on = true;
+			joy.id = e.pointerId;
+			joy.ox = e.clientX;
+			joy.oy = e.clientY;
+			ring.style.left = e.clientX - r.left + "px";
+			ring.style.top = e.clientY - r.top + "px";
+			ring.style.opacity = "0.7";
+			try {
+				wrap.setPointerCapture(e.pointerId);
+			} catch {}
+		};
+		const joyMove = (e) => {
+			if (!joy.on || e.pointerId !== joy.id) return;
+			let dx = (e.clientX - joy.ox) / 32;
+			let dy = (e.clientY - joy.oy) / 32;
+			const m = Math.hypot(dx, dy);
+			if (m > 1) {
+				dx /= m;
+				dy /= m;
+			}
+			joy.x = dx;
+			joy.y = dy;
+			knob.style.transform = `translate(${dx * 22}px,${dy * 22}px)`;
+		};
+		const joyEnd = (e) => {
+			if (e.pointerId !== joy.id) return;
+			joy.on = false;
+			joy.x = joy.y = 0;
+			ring.style.opacity = "0";
+			knob.style.transform = "";
+		};
+		const aDown = (e) => {
+			e.stopPropagation();
+			e.preventDefault();
+			touchA = true;
+			unlock();
+			try {
+				btn.setPointerCapture(e.pointerId);
+			} catch {}
+		};
+		const aUp = () => {
+			touchA = false;
+		};
+		addEventListener("keydown", down);
+		addEventListener("keyup", up);
+		addEventListener("blur", blur);
+		wrap.addEventListener("pointerdown", poke);
+		wrap.addEventListener("pointerdown", joyDown);
+		wrap.addEventListener("pointermove", joyMove);
+		wrap.addEventListener("pointerup", joyEnd);
+		wrap.addEventListener("pointercancel", joyEnd);
+		btn.addEventListener("pointerdown", aDown);
+		btn.addEventListener("pointerup", aUp);
+		btn.addEventListener("pointercancel", aUp);
+		const CODE = {
+			KeyA: "a",
+			KeyD: "d",
+			KeyW: "w",
+			KeyS: "s",
+			ArrowLeft: "arrowleft",
+			ArrowRight: "arrowright",
+			ArrowUp: "arrowup",
+			ArrowDown: "arrowdown",
+			Space: " ",
+			KeyZ: "z"
+		};
+		window.__controlsTest = {
+			getX: () => p.x,
+			getY: () => p.y,
+			getYaw: () => 0,
+			getSpeed: () => Math.hypot(p.vx, p.vy),
+			setKeys: (codes) => {
+				for (const k of Object.keys(K)) K[k] = 0;
+				for (const c of codes) K[CODE[c] || c.toLowerCase()] = 1;
+			},
+			forceEnding: () => {
+				if (mode !== "play") return;
+				dog.hp = 0;
+				startOutro();
+			}
+		};
+		spawn();
+		raf = requestAnimationFrame(loop);
+		return () => {
+			dead = true;
+			cancelAnimationFrame(raf);
+			removeEventListener("keydown", down);
+			removeEventListener("keyup", up);
+			removeEventListener("blur", blur);
+			wrap.removeEventListener("pointerdown", poke);
+			wrap.removeEventListener("pointerdown", joyDown);
+			wrap.removeEventListener("pointermove", joyMove);
+			wrap.removeEventListener("pointerup", joyEnd);
+			wrap.removeEventListener("pointercancel", joyEnd);
+			btn.removeEventListener("pointerdown", aDown);
+			btn.removeEventListener("pointerup", aUp);
+			btn.removeEventListener("pointercancel", aUp);
+			if (window.__controlsTest) delete window.__controlsTest;
+		};
+	}
+	//#endregion
+	//#region src/game/levelBoots.js
+	function bootL1(IN) {
+		const W = 160, H = 240, T = 16, COLS = 10, ROWS = 14, OY = 16, PH = 224, SP = 1.25;
+		const G = "#39ff14", M = "#0e9c24", D = "#07591a";
+		IN.cv;
+		const g = IN.g;
+		IN.wrap;
+		const K = IN.K, joy = IN.joy;
+		const B = (a) => a;
+		const TREES = [[
+			"................",
+			"......####......",
+			"....##....##....",
+			"...##......#....",
+			"..#.....#..###..",
+			".#.....#......#.",
+			".#..#......#.##.",
+			".#...#...##...#.",
+			".#...........##.",
+			"..##....#...##..",
+			"....####.###....",
+			"......#..#......",
+			"......#..#......",
+			".....##..##.....",
+			"....##..#.##....",
+			"......##.#......"
+		], [
+			"................",
+			"......#..#......",
+			"..#..##...#.....",
+			".##..#..###.##..",
+			"..##.##.#.#..##.",
+			"...##.####..##..",
+			"....#..#...##...",
+			".#####.#.#####..",
+			"...#.#.##.#.#...",
+			"..##.##.###.##..",
+			"......####......",
+			"......#..#......",
+			"......#..#......",
+			".....##..##.....",
+			"....##.#..##....",
+			"......##.#......"
+		]];
+		const ROCK = [
+			"................",
+			"................",
+			"................",
+			".....######.....",
+			"....##....##....",
+			"...####....##...",
+			"...#..#.##..##..",
+			"..##..###....##.",
+			".##...#......##.",
+			".##...#..#...#..",
+			"..#..##..#####..",
+			"..##.#.....##...",
+			"...###....##....",
+			"....###...#.....",
+			"......#####.....",
+			"................"
+		];
+		const SHRINE = [
+			"................",
+			"................",
+			".......#........",
+			".......#........",
+			".......#........",
+			"......#.#.......",
+			".....#...#......",
+			"....#..#..#.....",
+			"...#..#.#..#....",
+			"..#....#....#...",
+			".#############..",
+			".#...#....#..#..",
+			".##.#.##.#..##..",
+			"..#....#..#.#...",
+			".#############..",
+			"................"
+		];
+		const WIZ = [
+			".......#........",
+			"......###.......",
+			"......###.......",
+			"....#######.....",
+			"...#########....",
+			".....#.#.#......",
+			".....#####......",
+			"....#.###.#.....",
+			"...###...###....",
+			"...#.#######....",
+			"...###.##.##....",
+			".....#.#..##....",
+			"....#..####.....",
+			"...#########....",
+			"...#########....",
+			"...##..#####...."
+		];
+		const SW0 = [
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			".#.##.#.",
+			"########",
+			".#.##.#.",
+			"...##...",
+			"...##...",
+			"..####..",
+			"...##..."
+		];
+		const rot = (a) => {
+			const h = a.length, w = a[0].length, o = [];
+			for (let i = 0; i < w; i++) {
+				let r = "";
+				for (let j = h - 1; j >= 0; j--) r += a[j][i];
+				o.push(r);
+			}
+			return o;
+		};
+		const SW = [
+			SW0,
+			rot(SW0),
+			rot(rot(SW0)),
+			rot(rot(rot(SW0)))
+		];
+		const SWP = [
+			[4, -14],
+			[8, 4],
+			[4, 10],
+			[-8, 4]
+		];
+		const EN = [
+			"................",
+			".#.#........#.#.",
+			".###........###.",
+			"..#...#..#...#..",
+			"..#..##..##..#..",
+			"..############..",
+			"....##.#..##....",
+			"....##....##....",
+			"..############..",
+			"..#.##.##.##.#..",
+			"..##.##..##.##..",
+			"..#.##.##.##.#..",
+			"..#..#....#..#..",
+			"..#..#....#..#..",
+			"..#..#....#..#..",
+			"..#..#....#..#.."
+		];
+		const TOUGH = [
+			"................",
+			"................",
+			"................",
+			"...#........#...",
+			"....#.####.#....",
+			".....#.##.#.....",
+			"....#.####.#....",
+			"..###..##..###..",
+			"###.########.###",
+			".#..#.#..#.#..#.",
+			".##..#....#..##.",
+			"..#..######..#..",
+			".##...####...##.",
+			"##..###..###..##",
+			"#..#.##..##.#..#",
+			"#...#.#..#.#...#"
+		];
+		const ENB = [
+			"................",
+			".#..#......#..#.",
+			".###........###.",
+			"..#...#..#...#..",
+			"..#..##..##..#..",
+			"..############..",
+			"....##.#..##....",
+			"....##....##....",
+			"..############..",
+			"..#.##.##.##.#..",
+			"..##.##..##.##..",
+			"..#.##.##.##.#..",
+			"..#..#....#..#..",
+			".#....#..#....#.",
+			".#....#..#....#.",
+			".#....#..#....#."
+		], TOUGHB = [
+			"................",
+			"................",
+			"................",
+			"...#........#...",
+			"....#.####.#....",
+			".....#.##.#.....",
+			"....#.####.#....",
+			"..###..##..###..",
+			"###.########.###",
+			".#..#.#..#.#..#.",
+			"##...#....#...##",
+			".#...######...#.",
+			"##....####....##",
+			"##..###..###..##",
+			"#...#.#..##.#..#",
+			"#..#.##..#.#...#"
+		], PINE = [
+			".......##.......",
+			"......#..#......",
+			".....#.#..#.....",
+			"....#..##..#....",
+			"..###......###..",
+			"....#.#..#.#....",
+			"...#..#..#..#...",
+			"..#.#......#.#..",
+			".###..#..#..###.",
+			"...#.#.##.#.#...",
+			"....####.###....",
+			"......#..#......",
+			"......#..#......",
+			".....##..##.....",
+			"....##..#.##....",
+			"......##.#......"
+		], BIG = [
+			"................................",
+			".............#######............",
+			"............#########...........",
+			".........#####....####..........",
+			"......#######.....##.####.......",
+			".....#####..........##.##.......",
+			".....#####...........#.##.......",
+			"....###..........##....####.....",
+			"....##...........#.....######...",
+			"...###...........##.........##..",
+			"..###.........####...........#..",
+			"..###....#....#........#....##..",
+			"..##.....#.............#...###..",
+			".###.....#............##.....#..",
+			".###.....###.......####.....##..",
+			".###......###.....###.......##..",
+			"..###.......#.....#........###..",
+			"..####....................####..",
+			"....####.........##......###....",
+			"....######.......###....####....",
+			".......###########.########.....",
+			".........########..####.........",
+			".............#.....##...........",
+			".............#.....#............",
+			".............#.....##...........",
+			"............##.....###..........",
+			"...........###.....#####........",
+			"...........##.......##.#........",
+			".........###.....##..####.......",
+			".........####...###.#####.......",
+			"..........#.##.##..###..........",
+			"............####...##..........."
+		];
+		const WORLD = {
+			"1,0": [
+				"TTTTTTRTTT",
+				"TT......TT",
+				"T.........",
+				"T.T.......",
+				"T.....s..T",
+				"T........R",
+				"T........T",
+				"T.......TT",
+				"T.s......T",
+				"T........T",
+				"T......T.T",
+				"T........T",
+				"TT......TT",
+				"TRTT..TTTT"
+			],
+			"2,0": [
+				"TTTTTTTTTT",
+				"T.......TT",
+				".........T",
+				"...c.R...T",
+				"T........T",
+				"T.....X..T",
+				"T.......RT",
+				"T........T",
+				"R........T",
+				"T.....T..T",
+				"T........T",
+				"T...c....R",
+				"T.......TT",
+				"RT..TTTRTT"
+			],
+			"0,1": [
+				"TTTTRTTTTT",
+				"TT......TT",
+				"T........T",
+				"T.T......R",
+				"R.....s..T",
+				"T........T",
+				"T.........",
+				"T.........",
+				"T..s.....T",
+				"T........T",
+				"T.....T..R",
+				"T........T",
+				"TT......TT",
+				"TTRT..TTTT"
+			],
+			"1,1": [
+				"TTTT..TTTT",
+				"TT......TT",
+				"T......T.T",
+				"T..T.....T",
+				"T........T",
+				"T......R.T",
+				".........T",
+				".........R",
+				"T.....d..T",
+				"T........T",
+				"T.T......T",
+				"T.....T..T",
+				"TR......TT",
+				"TTTTTTTTTT"
+			],
+			"2,1": [
+				"TT..TRTTTT",
+				"T.......TT",
+				"T........T",
+				"T....T...T",
+				"T........T",
+				"T..c....TT",
+				"R......TTT",
+				"T.......TT",
+				"T........T",
+				"T..T.....T",
+				"T........R",
+				"T...c....T",
+				"TT......TT",
+				"TTTTTTTRTT"
+			],
+			"0,2": [
+				"TTTT..TTTT",
+				"RT......TT",
+				"T.........",
+				"T.s.......",
+				"T........R",
+				"T........T",
+				"T....s...T",
+				"R........T",
+				"T.T......T",
+				"T........T",
+				"T...s..T.T",
+				"T........T",
+				"TT......TT",
+				"RTTTTTTTTT"
+			],
+			"1,2": [
+				"TTTTTTTTTT",
+				"T.......TT",
+				".........T",
+				"...c..T..T",
+				"T........T",
+				"T........R",
+				"T........T",
+				"T....ST..R",
+				"T........T",
+				"T....c...T",
+				"T.T......T",
+				"T........T",
+				"TT......TT",
+				"RTTTTTRTTT"
+			]
+		};
+		const DBODY = [
+			"................",
+			"................",
+			"................",
+			".............#..",
+			"......#......#..",
+			".######.....#...",
+			"..#####.....#...",
+			"..#.#.#######...",
+			"..#...#######...",
+			"..###########...",
+			"....#########..."
+		];
+		const DLEGS = [
+			[
+				[4, 11],
+				[3, 12],
+				[4, 12],
+				[3, 13]
+			],
+			[
+				[6, 11],
+				[6, 12],
+				[6, 13]
+			],
+			[
+				[9, 11],
+				[9, 12],
+				[9, 13]
+			],
+			[
+				[12, 11],
+				[12, 12],
+				[13, 12],
+				[13, 13]
+			]
+		];
+		const DOGF = [
+			0,
+			1,
+			2,
+			3
+		].map((st) => {
+			const lift = st == 1 ? [0, 2] : st == 3 ? [1, 3] : [], a = DBODY.map((r) => r.split(""));
+			while (a.length < 16) a.push(".".repeat(16).split(""));
+			DLEGS.forEach((l, i) => l.forEach(([x, y]) => {
+				if (!(lift.includes(i) && y == 13)) a[y][x] = "#";
+			}));
+			return a.map((r) => r.join(""));
+		});
+		const HEART = B([
+			".##..##.",
+			"########",
+			"########",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		]);
+		const GEM = B([
+			"...##...",
+			"..####..",
+			".######.",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		]);
+		function spr(a, x, y, c, flip, p = 2) {
+			g.fillStyle = c;
+			x = Math.round(x);
+			y = Math.round(y);
+			const w = a[0].length;
+			for (let j = 0; j < a.length; j++) for (let i = 0; i < w; i++) if (a[j][flip ? w - 1 - i : i] === "#") g.fillRect(x + i * p, y + j * p, p, p);
+		}
+		const maps = {};
+		function map(sx, sy) {
+			const k = sx + "," + sy;
+			if (maps[k]) return maps[k];
+			const g = WORLD[k], m = [];
+			for (let y = 0; y < ROWS; y++) {
+				m[y] = [];
+				for (let x = 0; x < COLS; x++) {
+					const h = g[y][x];
+					m[y][x] = "TPXB".includes(h) ? 1 : h == "R" ? 2 : h == "S" ? 3 : 0;
+				}
+			}
+			m.g = g;
+			return maps[k] = m;
+		}
+		const DX = [
+			0,
+			1,
+			0,
+			-1
+		], DY = [
+			-1,
+			0,
+			1,
+			0
+		];
+		let dog, winT = 0, sx, sy, cm, p, gems, ens, shots, items, trans, over, win, stones, S, msg, msgT, t = 0, pa = 0, title = 1;
+		function reset() {
+			sx = 1;
+			sy = 1;
+			cm = map(1, 1);
+			p = {
+				x: 72,
+				y: 150,
+				d: 0,
+				hp: 6,
+				inv: 0,
+				atk: 0,
+				kb: 0,
+				kd: 0
+			};
+			gems = 0;
+			over = 0;
+			win = 0;
+			trans = null;
+			msg = "";
+			msgT = 0;
+			IN.tap = 0;
+			initLevel();
+			enter();
+		}
+		function initLevel() {
+			S = {};
+			stones = 0;
+			for (const k in WORLD) {
+				const sc = S[k] = {
+					ens: [],
+					items: []
+				}, g = WORLD[k];
+				for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+					const h = g[r][c];
+					if (h == "d") dog = {
+						x: c * T,
+						y: OY + r * T,
+						d: 3,
+						t: 20,
+						mv: 0,
+						f: 0
+					};
+					if (h == "s" || h == "c") sc.ens.push({
+						x: c * T,
+						y: OY + r * T,
+						d: 2,
+						t: 30,
+						cd: 60,
+						hp: h == "c" ? 2 : 1,
+						tg: h == "c" ? 1 : 0,
+						gs: 0,
+						ph: c + r & 1
+					});
+				}
+			}
+			for (const k in S) {
+				const l = S[k].ens;
+				if (l.length) l[Math.random() * l.length | 0].gs = 1;
+			}
+			const rest = [];
+			let n = 0;
+			for (const k in S) for (const e of S[k].ens) e.gs ? n++ : rest.push(e);
+			for (let i = rest.length - 1; i > 0; i--) {
+				const j = Math.random() * (i + 1) | 0;
+				[rest[i], rest[j]] = [rest[j], rest[i]];
+			}
+			rest.slice(0, Math.max(0, 8 - n)).forEach((e) => e.gs = 1);
+		}
+		function enter() {
+			const sc = S[sx + "," + sy];
+			ens = sc.ens;
+			items = sc.items;
+			shots = [];
+		}
+		function sol(x, y) {
+			const c = Math.floor(x / T), r = Math.floor((y - OY) / T);
+			if (c < 0 || r < 0 || c >= COLS || r >= ROWS) {
+				const ox = c < 0 || c >= COLS, oy = r < 0 || r >= ROWS, w = WORLD[sx + (c < 0 ? -1 : c >= COLS ? 1 : 0) + "," + (sy + (r < 0 ? -1 : r >= ROWS ? 1 : 0))];
+				if (!w || ox && oy) return 1;
+				return "TPXRB".includes(w[(r + ROWS) % ROWS][(c + COLS) % COLS]) ? 1 : 0;
+			}
+			const v = cm[r][c];
+			return v == 1 || v == 2;
+		}
+		function bl(x, y, w, lim) {
+			if (lim && (x < 0 || y < OY || x + w > W || y + w > 240)) return 1;
+			for (const [cx, cy] of [
+				[x, y],
+				[x + w - 1, y],
+				[x, y + w - 1],
+				[x + w - 1, y + w - 1]
+			]) if (sol(cx, cy)) return 1;
+			return 0;
+		}
+		function move(o, dx, dy, ins, lim) {
+			let m = 0;
+			const w = 16 - 2 * ins;
+			if (dx) {
+				const nx = o.x + dx;
+				if (!bl(nx + ins, o.y + ins, w, lim)) {
+					o.x = nx;
+					m = 1;
+				}
+			}
+			if (dy) {
+				const ny = o.y + dy;
+				if (!bl(o.x + ins, ny + ins, w, lim)) {
+					o.y = ny;
+					m = 1;
+				}
+			}
+			return m;
+		}
+		const ov = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+		function hurt(fx, fy) {
+			if (p.inv > 0) return;
+			p.hp--;
+			p.inv = 70;
+			p.atk = 0;
+			p.kb = 8;
+			const dx = p.x - fx, dy = p.y - fy;
+			p.kd = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 1 : 3 : dy > 0 ? 2 : 0;
+			if (p.hp <= 0) over = 1;
+		}
+		function sword() {
+			const x = p.x, y = p.y;
+			return [
+				[
+					x + 5,
+					y - 14,
+					6,
+					14
+				],
+				[
+					x + 10,
+					y + 5,
+					14,
+					6
+				],
+				[
+					x + 5,
+					y + 12,
+					6,
+					14
+				],
+				[
+					x - 8,
+					y + 5,
+					14,
+					6
+				]
+			][p.d];
+		}
+		function startTrans(dx, dy) {
+			trans = {
+				dx,
+				dy,
+				p: 0,
+				old: cm
+			};
+			sx += dx;
+			sy += dy;
+			cm = map(sx, sy);
+			if (dx < 0) p.x = 147;
+			if (dx > 0) p.x = -3;
+			if (dy < 0) p.y = 227;
+			if (dy > 0) p.y = 13;
+			enter();
+		}
+		function dirIn() {
+			let x = joy.x, y = joy.y;
+			if (Math.hypot(x, y) < .35) {
+				x = (K.arrowright || K.d ? 1 : 0) - (K.arrowleft || K.a ? 1 : 0);
+				y = (K.arrowdown || K.s ? 1 : 0) - (K.arrowup || K.w ? 1 : 0);
+			}
+			if (!x && !y) return null;
+			return Math.abs(x) > Math.abs(y) ? x > 0 ? 1 : 3 : y > 0 ? 2 : 0;
+		}
+		const atkIn = () => IN.touchA || K[" "] || K.z || K.x || K.enter;
+		function update() {
+			t++;
+			const a = atkIn();
+			if (title) {
+				if (a && !pa || IN.tap) {
+					title = 0;
+					IN.tap = 0;
+				}
+				pa = a;
+				return;
+			}
+			if (win) winT++;
+			if (over) {
+				if (a && !pa) reset();
+				pa = a;
+				return;
+			}
+			if (win) {
+				if (winT > 45 && a && !pa) {
+					IN.next();
+					return;
+				}
+				pa = a;
+				return;
+			}
+			if (trans) {
+				trans.p += 1 / 22;
+				if (trans.p >= 1) trans = null;
+				pa = a;
+				return;
+			}
+			if (msgT > 0) msgT--;
+			if (p.inv > 0) p.inv--;
+			if (p.kb > 0) {
+				p.kb--;
+				move(p, DX[p.kd] * 2, DY[p.kd] * 2, 3);
+			} else if (p.atk > 0) p.atk--;
+			else if (a && !pa) p.atk = 14;
+			else {
+				const v = dirIn();
+				if (v != null) {
+					p.d = v;
+					move(p, DX[v] * SP, DY[v] * SP, 3);
+				}
+			}
+			pa = a;
+			let dx = 0, dy = 0;
+			if (p.x < -4) dx = -1;
+			else if (p.x > 148) dx = 1;
+			else if (p.y < 12) dy = -1;
+			else if (p.y > 228) dy = 1;
+			if (dx || dy) {
+				startTrans(dx, dy);
+				return;
+			}
+			if (p.atk > 2 && p.atk < 13) {
+				const [a1, b1, c1, d1] = sword();
+				for (let i = ens.length - 1; i >= 0; i--) {
+					const e = ens[i];
+					if (ov(a1, b1, c1, d1, e.x + 2, e.y + 2, 12, 12) && !(e.hit > 0)) {
+						if (--e.hp > 0) {
+							e.hit = 30;
+							e.kb = 6;
+							e.kd = p.d;
+						} else {
+							ens.splice(i, 1);
+							if (e.gs) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 2,
+								l: Infinity
+							});
+							else if (Math.random() < .4) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 1,
+								l: 600
+							});
+						}
+					}
+				}
+			}
+			for (const e of ens) {
+				if (e.hit > 0) e.hit--;
+				if (e.kb > 0) {
+					e.kb--;
+					move(e, DX[e.kd] * 2, DY[e.kd] * 2, 2, 1);
+					continue;
+				}
+				if (--e.t <= 0) {
+					e.d = Math.random() * 4 | 0;
+					e.t = 40 + Math.random() * 60;
+				}
+				if (!move(e, DX[e.d] * .6, DY[e.d] * .6, 2, 1)) e.t = 0;
+				if (!e.tg && --e.cd <= 0 && Math.random() < .02) {
+					shots.push({
+						x: e.x + 5,
+						y: e.y + 5,
+						d: e.d
+					});
+					e.cd = 100;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, e.x + 2, e.y + 2, 12, 12)) hurt(e.x, e.y);
+			}
+			if (sx == 1 && sy == 1 && dog) {
+				if (--dog.t <= 0) {
+					dog.mv = Math.random() < .7;
+					dog.d = Math.random() * 4 | 0;
+					dog.t = 30 + Math.random() * 80 | 0;
+					if (dog.d == 1) dog.f = 1;
+					else if (dog.d == 3) dog.f = 0;
+				}
+				if (dog.mv && !move(dog, DX[dog.d] * .5, DY[dog.d] * .5, 2, 1)) dog.t = 0;
+			}
+			for (let i = shots.length - 1; i >= 0; i--) {
+				const s = shots[i];
+				s.x += DX[s.d] * 1.6;
+				s.y += DY[s.d] * 1.6;
+				if (s.x < 0 || s.x > 154 || s.y < OY || s.y > 234 || sol(s.x + 3, s.y + 3)) {
+					shots.splice(i, 1);
+					continue;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, s.x, s.y, 6, 6)) {
+					hurt(s.x, s.y);
+					shots.splice(i, 1);
+				}
+			}
+			for (let i = items.length - 1; i >= 0; i--) {
+				const it = items[i];
+				if (--it.l <= 0) {
+					items.splice(i, 1);
+					continue;
+				}
+				const sz = 8;
+				if (ov(p.x + 3, p.y + 3, 10, 10, it.x, it.y, sz, sz)) {
+					if (it.k == 2) stones++;
+					else if (it.k) p.hp = Math.min(6, p.hp + 2);
+					else gems = Math.min(999, gems + 1);
+					items.splice(i, 1);
+				}
+			}
+			const tc = Math.floor((p.x + 8) / T), tr = Math.floor((p.y + 8 - OY) / T);
+			if (cm[tr] && cm[tr][tc] == 3) {
+				if (stones >= 8) {
+					win = 1;
+					winT = 0;
+				}
+			}
+		}
+		function drawMap(m, ox, oy) {
+			for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+				const v = m[r][c], x = c * T + ox, y = OY + r * T + oy;
+				if (v == 1) {
+					const h = m.g[r][c];
+					if (h == "T") spr(TREES[0], x, y, M, 0, 1);
+					else if (h == "X") spr(TREES[1], x, y, M, 0, 1);
+					else if (h == "P") spr(PINE, x, y, M, 0, 1);
+					else if (c == 4 && r == 5) spr(BIG, x, y, M, 0, 1);
+				} else if (v == 2) spr(ROCK, x, y, M, 0, 1);
+				else if (v == 3) spr(SHRINE, x, y, G, 0, 1);
+				else if ((c * 7 + r * 13) % 11 == 0) {
+					g.fillStyle = D;
+					g.fillRect(Math.round(x) + 7, Math.round(y) + 7, 2, 2);
+				}
+			}
+		}
+		function txt(s, x, y, c, al) {
+			g.font = "8px \"Press Start 2P\",monospace";
+			g.textBaseline = "top";
+			g.textAlign = al || "left";
+			g.fillStyle = c;
+			g.fillText(s, x, y);
+		}
+		function drawWin() {
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			txt("LEVEL CLEAR", 80, 96, G, "center");
+			if (t >> 4 & 1) txt("TAP A", 80, 122, M, "center");
+		}
+		function draw() {
+			if (win) {
+				drawWin();
+				return;
+			}
+			if (title) {
+				g.fillStyle = "#000";
+				g.fillRect(0, 0, W, H);
+				txt("The", 80, 102, M, "center");
+				g.save();
+				g.scale(2, 2);
+				txt("Wizard", 40, 58, G, "center");
+				g.restore();
+				if (t >> 5 & 1) txt("Tap A to start", 80, 160, M, "center");
+				return;
+			}
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			g.save();
+			g.beginPath();
+			g.rect(0, OY, W, PH);
+			g.clip();
+			let ox = 0, oy = 0;
+			if (trans) {
+				const q = 1 - trans.p;
+				ox = trans.dx * W * q;
+				oy = trans.dy * PH * q;
+				drawMap(trans.old, -trans.dx * W * trans.p, -trans.dy * PH * trans.p);
+			}
+			drawMap(cm, ox, oy);
+			if (!trans) {
+				for (const it of items) if (it.k == 2) spr(GEM, it.x, it.y + (t >> 5 & 1), G, 0, 1);
+				else if (it.l > 120 || t >> 3 & 1) spr(it.k ? HEART : GEM, it.x, it.y, G, 0, 1);
+				for (const e of ens) if (!(e.hit > 0) || t >> 2 & 1) spr(e.tg ? (t >> 4) + e.ph & 1 ? TOUGHB : TOUGH : (t >> 4) + e.ph & 1 ? ENB : EN, e.x, e.y + (t >> 4 & 1), G, 0, 1);
+				if (sx == 1 && sy == 1 && dog) spr(DOGF[dog.mv ? (t / 10 | 0) & 3 : 0], dog.x, dog.y, G, dog.f, 1);
+				g.fillStyle = G;
+				for (const s of shots) g.fillRect(Math.round(s.x), Math.round(s.y), 6, 6);
+			}
+			if (p.inv <= 0 || t >> 2 & 1) spr(WIZ, p.x + ox, p.y + oy, G, p.d == 3, 1);
+			if (!trans && p.atk > 2 && p.atk < 13) spr(SW[p.d], p.x + SWP[p.d][0], p.y + SWP[p.d][1], G, 0, 1);
+			if (msgT > 0) {
+				const w = msg.length * 8 + 16, y = 116;
+				g.fillStyle = "#000";
+				g.fillRect(80 - w / 2, y, w, 24);
+				g.strokeStyle = G;
+				g.lineWidth = 1;
+				g.strokeRect(80 - w / 2 + .5, 116.5, w - 1, 23);
+				txt(msg, 80, 124, G, "center");
+			}
+			g.restore();
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, OY);
+			g.fillStyle = D;
+			g.fillRect(0, 15, W, 1);
+			for (let i = 0; i < 3; i++) spr(HEART, 4 + i * 10, 4, p.hp >= 2 * i + 2 ? G : p.hp == 2 * i + 1 ? M : D, 0, 1);
+			spr(GEM, 46, 4, G, 0, 1);
+			txt(stones + "/8", 56, 4, stones >= 8 ? G : M);
+			for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+				if (!WORLD[i + "," + j]) continue;
+				g.fillStyle = i == sx && j == sy ? G : D;
+				g.fillRect(136 + i * 6, 2 + j * 4, 5, 3);
+			}
+			if (over || win) {
+				g.fillStyle = "rgba(0,0,0,.75)";
+				g.fillRect(0, OY, W, PH);
+				txt(win ? "YOU WIN!" : "GAME OVER", 80, 100, G, "center");
+				txt("TAP A", 80, 124, M, "center");
+			}
+		}
+		reset();
+		return {
+			update,
+			draw
+		};
+	}
+	function bootL2(IN) {
+		const W = 160, H = 240, T = 16, COLS = 10, ROWS = 14, OY = 16, PH = 224, SP = 1.25;
+		const G = "#39ff14", M = "#0e9c24", D = "#07591a";
+		IN.cv;
+		const g = IN.g;
+		IN.wrap;
+		const K = IN.K, joy = IN.joy;
+		const B = (a) => a;
+		const TREES = [[
+			"................",
+			"......####......",
+			"....##....##....",
+			"...##......#....",
+			"..#.....#..###..",
+			".#.....#......#.",
+			".#..#......#.##.",
+			".#...#...##...#.",
+			".#...........##.",
+			"..##....#...##..",
+			"....####.###....",
+			"......#..#......",
+			"......#..#......",
+			".....##..##.....",
+			"....##..#.##....",
+			"......##.#......"
+		], [
+			"................",
+			"......#..#......",
+			"..#..##...#.....",
+			".##..#..###.##..",
+			"..##.##.#.#..##.",
+			"...##.####..##..",
+			"....#..#...##...",
+			".#####.#.#####..",
+			"...#.#.##.#.#...",
+			"..##.##.###.##..",
+			"......####......",
+			"......#..#......",
+			"......#..#......",
+			".....##..##.....",
+			"....##.#..##....",
+			"......##.#......"
+		]];
+		const ROCK = [
+			"................",
+			"................",
+			"................",
+			".....######.....",
+			"....##....##....",
+			"...####....##...",
+			"...#..#.##..##..",
+			"..##..###....##.",
+			".##...#......##.",
+			".##...#..#...#..",
+			"..#..##..#####..",
+			"..##.#.....##...",
+			"...###....##....",
+			"....###...#.....",
+			"......#####.....",
+			"................"
+		];
+		const SHRINE = [
+			"................",
+			"................",
+			".......#........",
+			".......#........",
+			".......#........",
+			"......#.#.......",
+			".....#...#......",
+			"....#..#..#.....",
+			"...#..#.#..#....",
+			"..#....#....#...",
+			".#############..",
+			".#...#....#..#..",
+			".##.#.##.#..##..",
+			"..#....#..#.#...",
+			".#############..",
+			"................"
+		];
+		const WIZ = [
+			".......#........",
+			"......###.......",
+			"......###.......",
+			"....#######.....",
+			"...#########....",
+			".....#.#.#......",
+			".....#####......",
+			"....#.###.#.....",
+			"...###...###....",
+			"...#.#######....",
+			"...###.##.##....",
+			".....#.#..##....",
+			"....#..####.....",
+			"...#########....",
+			"...#########....",
+			"...##..#####...."
+		];
+		const SW0 = [
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			".#.##.#.",
+			"########",
+			".#.##.#.",
+			"...##...",
+			"...##...",
+			"..####..",
+			"...##..."
+		];
+		const rot = (a) => {
+			const h = a.length, w = a[0].length, o = [];
+			for (let i = 0; i < w; i++) {
+				let r = "";
+				for (let j = h - 1; j >= 0; j--) r += a[j][i];
+				o.push(r);
+			}
+			return o;
+		};
+		const SW = [
+			SW0,
+			rot(SW0),
+			rot(rot(SW0)),
+			rot(rot(rot(SW0)))
+		];
+		const SWP = [
+			[4, -14],
+			[8, 4],
+			[4, 10],
+			[-8, 4]
+		], PINE = [
+			".......##.......",
+			"......#..#......",
+			".....#.#..#.....",
+			"....#..##..#....",
+			"..###......###..",
+			"....#.#..#.#....",
+			"...#..#..#..#...",
+			"..#.#......#.#..",
+			".###..#..#..###.",
+			"...#.#.##.#.#...",
+			"....####.###....",
+			"......#..#......",
+			"......#..#......",
+			".....##..##.....",
+			"....##..#.##....",
+			"......##.#......"
+		], BIG = [
+			"................................",
+			".............#######............",
+			"............#########...........",
+			".........#####....####..........",
+			"......#######.....##.####.......",
+			".....#####..........##.##.......",
+			".....#####...........#.##.......",
+			"....###..........##....####.....",
+			"....##...........#.....######...",
+			"...###...........##.........##..",
+			"..###.........####...........#..",
+			"..###....#....#........#....##..",
+			"..##.....#.............#...###..",
+			".###.....#............##.....#..",
+			".###.....###.......####.....##..",
+			".###......###.....###.......##..",
+			"..###.......#.....#........###..",
+			"..####....................####..",
+			"....####.........##......###....",
+			"....######.......###....####....",
+			".......###########.########.....",
+			".........########..####.........",
+			".............#.....##...........",
+			".............#.....#............",
+			".............#.....##...........",
+			"............##.....###..........",
+			"...........###.....#####........",
+			"...........##.......##.#........",
+			".........###.....##..####.......",
+			".........####...###.#####.......",
+			"..........#.##.##..###..........",
+			"............####...##..........."
+		];
+		const WORLD = {
+			"0,0": [
+				"TTTTTTTTTT",
+				"T........T",
+				"T...S....T",
+				"T........T",
+				"T........T",
+				"T.s......T",
+				"T.....s..T",
+				"T........T",
+				"T........T",
+				"T..s.....T",
+				"T........T",
+				"T........T",
+				"T........T",
+				"TTTT..TTTT"
+			],
+			"1,0": [
+				"TTTTTTTTTT",
+				"TT......TT",
+				"T........T",
+				"T........T",
+				"T...T....T",
+				"T........T",
+				"T.........",
+				"T.........",
+				"T........T",
+				"T...T....T",
+				"T........T",
+				"T........T",
+				"TT......TT",
+				"TTTTTTTTTT"
+			],
+			"2,0": [
+				"TTTTTTTTTT",
+				"TR......TT",
+				"T........T",
+				"T....c...T",
+				"T.....T..T",
+				"T........T",
+				".........T",
+				".........T",
+				"T........T",
+				"T..T.....T",
+				"T....c.R.T",
+				"T........T",
+				"TT......TT",
+				"TTTT..TTTT"
+			],
+			"0,1": [
+				"TTTT..TTTT",
+				"TT......TT",
+				"T........T",
+				"T........T",
+				"T..s.....T",
+				"T........T",
+				"T........T",
+				"T.....s..T",
+				"T........T",
+				"T........T",
+				"T........T",
+				"T........T",
+				"TT......TT",
+				"TTTT..TTTT"
+			],
+			"2,1": [
+				"TTTT..TTTT",
+				"TT......TT",
+				"T........T",
+				"T.T......T",
+				"T.....R..T",
+				"T..s.....T",
+				"T........T",
+				"T........T",
+				"T........T",
+				"T.R...c..T",
+				"T......T.T",
+				"T........T",
+				"TT......TT",
+				"TTTT..TTTT"
+			],
+			"0,2": [
+				"TTTT..TTTT",
+				"TT......TT",
+				"T........T",
+				"T........T",
+				"T..s..T..T",
+				"T........T",
+				"T.........",
+				"T.....c...",
+				"T........T",
+				"T..T.....T",
+				"T........T",
+				"T.....R..T",
+				"TT......TT",
+				"TTTTTTTTTT"
+			],
+			"1,2": [
+				"TTTTTTTTTT",
+				"TT......TT",
+				"T........T",
+				"T...T....T",
+				"T.T......T",
+				"T.....T..T",
+				"..........",
+				"....T.....",
+				"T........T",
+				"T.....T..T",
+				"T..T.....T",
+				"T........T",
+				"TT......TT",
+				"TTTTTTTTTT"
+			],
+			"2,2": [
+				"TTTT..TTTT",
+				"TT......RT",
+				"T........T",
+				"T........T",
+				"T.....T..T",
+				"T........T",
+				".........T",
+				"......s..T",
+				"T........T",
+				"T..T.....T",
+				"T..s.....T",
+				"T........T",
+				"TT......TT",
+				"TTTTTTTTTT"
+			]
+		};
+		const SORIG = [
+			".....#####......",
+			"....##.#.##.....",
+			"....#..#..#.....",
+			"....###.###.....",
+			".....#####......",
+			"...#########....",
+			"..##.#.#.#.##...",
+			".##..#####..##..",
+			".##....#....##..",
+			".##..#####..##..",
+			".##..#.#.#..##..",
+			".#...#####...#..",
+			"....#######.....",
+			"...##.....##....",
+			"...##.....##....",
+			"..###.....###..."
+		];
+		const SARM = [
+			[2, 6],
+			[3, 6],
+			[1, 7],
+			[2, 7],
+			[1, 8],
+			[2, 8],
+			[1, 9],
+			[2, 9],
+			[1, 10],
+			[2, 10],
+			[1, 11]
+		], SLEG = [
+			[3, 13],
+			[4, 13],
+			[3, 14],
+			[4, 14],
+			[2, 15],
+			[3, 15],
+			[4, 15]
+		], SLEGUP = [
+			[3, 13],
+			[4, 13],
+			[2, 14],
+			[3, 14],
+			[4, 14]
+		];
+		const smir = ([x, y]) => [14 - x, y], skey = ([x, y]) => x + "," + y;
+		const slimbs = new Set([
+			...SARM,
+			...SARM.map(smir),
+			...SLEG,
+			...SLEG.map(smir)
+		].map(skey));
+		const SSTATIC = [];
+		SORIG.forEach((r, y) => [...r].forEach((c, x) => {
+			if (c == "#" && !slimbs.has(skey([x, y]))) SSTATIC.push([x, y]);
+		}));
+		const SLEGT = [
+			[1, 0],
+			[0, 0],
+			[-1, 0],
+			[-1, 1],
+			[0, 1],
+			[1, 1]
+		], SARMT = [
+			0,
+			1,
+			1,
+			0,
+			-1,
+			-1
+		];
+		function sleg(i, r) {
+			const [o, up] = SLEGT[(i + (r ? 3 : 0)) % 6];
+			return (up ? SLEGUP : SLEG).map(([x, y]) => r ? [14 - x + o, y] : [x - o, y]);
+		}
+		function sarm(i, r) {
+			const q = SARMT[(i + (r ? 0 : 3)) % 6];
+			let a = SARM.map(([x, y]) => [x, y]);
+			if (q < 0) a = a.map(([x, y]) => [x, y - 1]);
+			if (q > 0) a.push([2, 11], [1, 12]);
+			return r ? a.map(smir) : a;
+		}
+		const SKF = [
+			0,
+			1,
+			2,
+			3,
+			4,
+			5
+		].map((i) => {
+			const a = Array.from({ length: 16 }, () => Array(16).fill("."));
+			[
+				...SSTATIC,
+				...sleg(i, 0),
+				...sleg(i, 1),
+				...sarm(i, 0),
+				...sarm(i, 1)
+			].forEach(([x, y]) => {
+				if (x >= 0 && x < 16 && y >= 0 && y < 16) a[y][x] = "#";
+			});
+			return a.map((r) => r.join(""));
+		});
+		const SNROWS = [
+			"................",
+			"................",
+			"................",
+			"................",
+			"..##........##..",
+			".####.......#...",
+			"....#.......#...",
+			"....#.......#...",
+			"....#.......#...",
+			"....#.......#...",
+			"....##.....##...",
+			".....#######...."
+		];
+		const SNF = [
+			0,
+			1,
+			0,
+			-1
+		].map((dx) => {
+			const a = Array.from({ length: 16 }, () => Array(16).fill("."));
+			SNROWS.forEach((r, y) => [...r].forEach((c, x) => {
+				if (c != "#") return;
+				let X = x;
+				if (y <= 5) X = x < 8 ? x + dx : x - dx;
+				if (X >= 0 && X < 16) a[y][X] = "#";
+			}));
+			return a.map((r) => r.join(""));
+		});
+		const TREE2 = [
+			"................",
+			".....##.........",
+			"......##..##....",
+			".......#.##.....",
+			"...#...###......",
+			"..###.###....#..",
+			"....#..##..###..",
+			"....##.#####....",
+			".....######.....",
+			".....#####......",
+			"......####......",
+			"......####......",
+			"......####......",
+			"......#####.....",
+			".....##.##.#....",
+			"....#...#......."
+		];
+		const DBODY = [
+			"................",
+			"................",
+			"................",
+			".............#..",
+			"......#......#..",
+			".######.....#...",
+			"..#####.....#...",
+			"..#.#.#######...",
+			"..#...#######...",
+			"..###########...",
+			"....#########..."
+		];
+		const DLEGS = [
+			[
+				[4, 11],
+				[3, 12],
+				[4, 12],
+				[3, 13]
+			],
+			[
+				[6, 11],
+				[6, 12],
+				[6, 13]
+			],
+			[
+				[9, 11],
+				[9, 12],
+				[9, 13]
+			],
+			[
+				[12, 11],
+				[12, 12],
+				[13, 12],
+				[13, 13]
+			]
+		];
+		const DOGF = [
+			0,
+			1,
+			2,
+			3
+		].map((st) => {
+			const lift = st == 1 ? [0, 2] : st == 3 ? [1, 3] : [], a = DBODY.map((r) => r.split(""));
+			while (a.length < 16) a.push(".".repeat(16).split(""));
+			DLEGS.forEach((l, i) => l.forEach(([x, y]) => {
+				if (!(lift.includes(i) && y == 13)) a[y][x] = "#";
+			}));
+			return a.map((r) => r.join(""));
+		});
+		const HEART = B([
+			".##..##.",
+			"########",
+			"########",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		]);
+		const GEM = B([
+			"...##...",
+			"..####..",
+			".######.",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		]);
+		function spr(a, x, y, c, flip, p = 2) {
+			g.fillStyle = c;
+			x = Math.round(x);
+			y = Math.round(y);
+			const w = a[0].length;
+			for (let j = 0; j < a.length; j++) for (let i = 0; i < w; i++) if (a[j][flip ? w - 1 - i : i] === "#") g.fillRect(x + i * p, y + j * p, p, p);
+		}
+		function rnd(s) {
+			return () => {
+				s |= 0;
+				s = s + 1831565813 | 0;
+				let t = Math.imul(s ^ s >>> 15, 1 | s);
+				t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+				return ((t ^ t >>> 14) >>> 0) / 4294967296;
+			};
+		}
+		const maps = {};
+		function map(sx, sy) {
+			const k = sx + "," + sy;
+			if (maps[k]) return maps[k];
+			const g = WORLD[k], m = [];
+			for (let y = 0; y < ROWS; y++) {
+				m[y] = [];
+				for (let x = 0; x < COLS; x++) {
+					const h = g[y][x];
+					m[y][x] = "TPXB".includes(h) ? 1 : h == "R" ? 2 : h == "S" ? 3 : 0;
+				}
+			}
+			const rr = rnd(sx * 91 + sy * 17 + 3);
+			m.v = [];
+			for (let y = 0; y < ROWS; y++) {
+				m.v[y] = [];
+				for (let x = 0; x < COLS; x++) m.v[y][x] = rr() < .4 ? 1 : 0;
+			}
+			m.g = g;
+			return maps[k] = m;
+		}
+		const DX = [
+			0,
+			1,
+			0,
+			-1
+		], DY = [
+			-1,
+			0,
+			1,
+			0
+		];
+		let dog, winT = 0, sx, sy, cm, p, gems, ens, shots, items, trans, over, win, stones, S, msg, msgT, t = 0, pa = 0, title = 1;
+		function reset() {
+			sx = 1;
+			sy = 0;
+			cm = map(1, 0);
+			p = {
+				x: 64,
+				y: 128,
+				d: 0,
+				hp: 6,
+				inv: 0,
+				atk: 0,
+				kb: 0,
+				kd: 0
+			};
+			gems = 0;
+			over = 0;
+			win = 0;
+			trans = null;
+			msg = "";
+			msgT = 0;
+			IN.tap = 0;
+			initLevel();
+			enter();
+		}
+		function initLevel() {
+			S = {};
+			stones = 0;
+			for (const k in WORLD) {
+				const sc = S[k] = {
+					ens: [],
+					items: []
+				}, g = WORLD[k];
+				for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+					const h = g[r][c];
+					if (h == "d") dog = {
+						x: c * T,
+						y: OY + r * T,
+						d: 3,
+						t: 20,
+						mv: 0,
+						f: 0
+					};
+					if (h == "s" || h == "c") sc.ens.push({
+						x: c * T,
+						y: OY + r * T,
+						d: 2,
+						t: 30,
+						cd: 60,
+						hp: h == "s" ? 2 : 1,
+						sk: h == "s" ? 1 : 0,
+						gs: 0,
+						ph: c + r & 3,
+						mv: 0,
+						wt: 0,
+						wd: 0
+					});
+				}
+			}
+			for (const k in S) {
+				const l = S[k].ens;
+				if (l.length) l[Math.random() * l.length | 0].gs = 1;
+			}
+			const rest = [];
+			let n = 0;
+			for (const k in S) for (const e of S[k].ens) e.gs ? n++ : rest.push(e);
+			for (let i = rest.length - 1; i > 0; i--) {
+				const j = Math.random() * (i + 1) | 0;
+				[rest[i], rest[j]] = [rest[j], rest[i]];
+			}
+			rest.slice(0, Math.max(0, 8 - n)).forEach((e) => e.gs = 1);
+		}
+		function enter() {
+			const sc = S[sx + "," + sy];
+			ens = sc.ens;
+			items = sc.items;
+			shots = [];
+		}
+		function sol(x, y) {
+			const c = Math.floor(x / T), r = Math.floor((y - OY) / T);
+			if (c < 0 || r < 0 || c >= COLS || r >= ROWS) {
+				const ox = c < 0 || c >= COLS, oy = r < 0 || r >= ROWS, w = WORLD[sx + (c < 0 ? -1 : c >= COLS ? 1 : 0) + "," + (sy + (r < 0 ? -1 : r >= ROWS ? 1 : 0))];
+				if (!w || ox && oy) return 1;
+				return "TPXRB".includes(w[(r + ROWS) % ROWS][(c + COLS) % COLS]) ? 1 : 0;
+			}
+			const v = cm[r][c];
+			return v == 1 || v == 2;
+		}
+		function bl(x, y, w, lim) {
+			if (lim && (x < 0 || y < OY || x + w > W || y + w > 240)) return 1;
+			for (const [cx, cy] of [
+				[x, y],
+				[x + w - 1, y],
+				[x, y + w - 1],
+				[x + w - 1, y + w - 1]
+			]) if (sol(cx, cy)) return 1;
+			return 0;
+		}
+		function move(o, dx, dy, ins, lim) {
+			let m = 0;
+			const w = 16 - 2 * ins;
+			if (dx) {
+				const nx = o.x + dx;
+				if (!bl(nx + ins, o.y + ins, w, lim)) {
+					o.x = nx;
+					m = 1;
+				}
+			}
+			if (dy) {
+				const ny = o.y + dy;
+				if (!bl(o.x + ins, ny + ins, w, lim)) {
+					o.y = ny;
+					m = 1;
+				}
+			}
+			return m;
+		}
+		const ov = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+		function hurt(fx, fy) {
+			if (p.inv > 0) return;
+			p.hp--;
+			p.inv = 70;
+			p.atk = 0;
+			p.kb = 8;
+			const dx = p.x - fx, dy = p.y - fy;
+			p.kd = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 1 : 3 : dy > 0 ? 2 : 0;
+			if (p.hp <= 0) over = 1;
+		}
+		function sword() {
+			const x = p.x, y = p.y;
+			return [
+				[
+					x + 5,
+					y - 14,
+					6,
+					14
+				],
+				[
+					x + 10,
+					y + 5,
+					14,
+					6
+				],
+				[
+					x + 5,
+					y + 12,
+					6,
+					14
+				],
+				[
+					x - 8,
+					y + 5,
+					14,
+					6
+				]
+			][p.d];
+		}
+		function startTrans(dx, dy) {
+			trans = {
+				dx,
+				dy,
+				p: 0,
+				old: cm
+			};
+			sx += dx;
+			sy += dy;
+			cm = map(sx, sy);
+			if (dx < 0) p.x = 147;
+			if (dx > 0) p.x = -3;
+			if (dy < 0) p.y = 227;
+			if (dy > 0) p.y = 13;
+			enter();
+		}
+		function dirIn() {
+			let x = joy.x, y = joy.y;
+			if (Math.hypot(x, y) < .35) {
+				x = (K.arrowright || K.d ? 1 : 0) - (K.arrowleft || K.a ? 1 : 0);
+				y = (K.arrowdown || K.s ? 1 : 0) - (K.arrowup || K.w ? 1 : 0);
+			}
+			if (!x && !y) return null;
+			return Math.abs(x) > Math.abs(y) ? x > 0 ? 1 : 3 : y > 0 ? 2 : 0;
+		}
+		const atkIn = () => IN.touchA || K[" "] || K.z || K.x || K.enter;
+		function update() {
+			t++;
+			const a = atkIn();
+			if (title) {
+				if (a && !pa || IN.tap) {
+					title = 0;
+					IN.tap = 0;
+				}
+				pa = a;
+				return;
+			}
+			if (win) winT++;
+			if (over) {
+				if (a && !pa) reset();
+				pa = a;
+				return;
+			}
+			if (win) {
+				if (winT > 45 && a && !pa) {
+					IN.next();
+					return;
+				}
+				pa = a;
+				return;
+			}
+			if (trans) {
+				trans.p += 1 / 22;
+				if (trans.p >= 1) trans = null;
+				pa = a;
+				return;
+			}
+			if (msgT > 0) msgT--;
+			if (p.inv > 0) p.inv--;
+			if (p.kb > 0) {
+				p.kb--;
+				move(p, DX[p.kd] * 2, DY[p.kd] * 2, 3);
+			} else if (p.atk > 0) p.atk--;
+			else if (a && !pa) p.atk = 14;
+			else {
+				const v = dirIn();
+				if (v != null) {
+					p.d = v;
+					move(p, DX[v] * SP, DY[v] * SP, 3);
+				}
+			}
+			pa = a;
+			let dx = 0, dy = 0;
+			if (p.x < -4) dx = -1;
+			else if (p.x > 148) dx = 1;
+			else if (p.y < 12) dy = -1;
+			else if (p.y > 228) dy = 1;
+			if (dx || dy) {
+				startTrans(dx, dy);
+				return;
+			}
+			if (p.atk > 2 && p.atk < 13) {
+				const [a1, b1, c1, d1] = sword();
+				for (let i = ens.length - 1; i >= 0; i--) {
+					const e = ens[i];
+					if (ov(a1, b1, c1, d1, e.x + 2, e.y + 2, 12, 12) && !(e.hit > 0)) {
+						if (--e.hp > 0) {
+							e.hit = 30;
+							e.kb = 6;
+							e.kd = p.d;
+						} else {
+							ens.splice(i, 1);
+							if (e.gs) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 2,
+								l: Infinity
+							});
+							else if (Math.random() < .4) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 1,
+								l: 600
+							});
+						}
+					}
+				}
+			}
+			for (const e of ens) {
+				if (e.hit > 0) e.hit--;
+				if (e.kb > 0) {
+					e.kb--;
+					move(e, DX[e.kd] * 2, DY[e.kd] * 2, 2, 1);
+					continue;
+				}
+				let mv = 0;
+				if (e.sk) {
+					if (e.wt > 0) {
+						e.wt--;
+						mv = move(e, DX[e.wd] * .55, DY[e.wd] * .55, 2, 1);
+						if (!mv) e.wt = 0;
+					} else {
+						const dx = p.x - e.x, dy = p.y - e.y, ax = Math.abs(dx), ay = Math.abs(dy), h = dx > 0 ? 1 : 3, v = dy > 0 ? 2 : 0, a = ax > ay ? h : v, b = ax > ay ? v : h;
+						mv = move(e, DX[a] * .55, DY[a] * .55, 2, 1);
+						if (!mv && Math.min(ax, ay) > 3) mv = move(e, DX[b] * .55, DY[b] * .55, 2, 1);
+						if (!mv) {
+							e.wd = Math.random() * 4 | 0;
+							e.wt = 15 + Math.random() * 20 | 0;
+						}
+					}
+				} else {
+					if (--e.t <= 0) {
+						e.d = Math.random() * 4 | 0;
+						e.t = 40 + Math.random() * 60;
+					}
+					mv = move(e, DX[e.d] * .8, DY[e.d] * .8, 2, 1);
+					if (!mv) e.t = 0;
+				}
+				e.mv = mv;
+				if (ov(p.x + 3, p.y + 3, 10, 10, e.x + 2, e.y + 2, 12, 12)) hurt(e.x, e.y);
+			}
+			if (sx == 1 && sy == 1 && dog) {
+				if (--dog.t <= 0) {
+					dog.mv = Math.random() < .7;
+					dog.d = Math.random() * 4 | 0;
+					dog.t = 30 + Math.random() * 80 | 0;
+					if (dog.d == 1) dog.f = 1;
+					else if (dog.d == 3) dog.f = 0;
+				}
+				if (dog.mv && !move(dog, DX[dog.d] * .5, DY[dog.d] * .5, 2, 1)) dog.t = 0;
+			}
+			for (let i = shots.length - 1; i >= 0; i--) {
+				const s = shots[i];
+				s.x += DX[s.d] * 1.6;
+				s.y += DY[s.d] * 1.6;
+				if (s.x < 0 || s.x > 154 || s.y < OY || s.y > 234 || sol(s.x + 3, s.y + 3)) {
+					shots.splice(i, 1);
+					continue;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, s.x, s.y, 6, 6)) {
+					hurt(s.x, s.y);
+					shots.splice(i, 1);
+				}
+			}
+			for (let i = items.length - 1; i >= 0; i--) {
+				const it = items[i];
+				if (--it.l <= 0) {
+					items.splice(i, 1);
+					continue;
+				}
+				const sz = 8;
+				if (ov(p.x + 3, p.y + 3, 10, 10, it.x, it.y, sz, sz)) {
+					if (it.k == 2) stones++;
+					else if (it.k) p.hp = Math.min(6, p.hp + 2);
+					else gems = Math.min(999, gems + 1);
+					items.splice(i, 1);
+				}
+			}
+			const tc = Math.floor((p.x + 8) / T), tr = Math.floor((p.y + 8 - OY) / T);
+			if (cm[tr] && cm[tr][tc] == 3) {
+				if (stones >= 8) {
+					win = 1;
+					winT = 0;
+				}
+			}
+		}
+		function drawMap(m, ox, oy) {
+			for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+				const v = m[r][c], x = c * T + ox, y = OY + r * T + oy;
+				if (v == 1) {
+					const h = m.g[r][c];
+					if (h == "T") spr(m.v[r][c] ? TREE2 : TREES[1], x, y, M, 0, 1);
+					else if (h == "X") spr(TREES[1], x, y, M, 0, 1);
+					else if (h == "P") spr(PINE, x, y, M, 0, 1);
+					else if (c == 4 && r == 5) spr(BIG, x, y, M, 0, 1);
+				} else if (v == 2) spr(ROCK, x, y, M, 0, 1);
+				else if (v == 3) spr(SHRINE, x, y, G, 0, 1);
+				else if ((c * 7 + r * 13) % 11 == 0) {
+					g.fillStyle = D;
+					g.fillRect(Math.round(x) + 7, Math.round(y) + 7, 2, 2);
+				}
+			}
+		}
+		function txt(s, x, y, c, al) {
+			g.font = "8px \"Press Start 2P\",monospace";
+			g.textBaseline = "top";
+			g.textAlign = al || "left";
+			g.fillStyle = c;
+			g.fillText(s, x, y);
+		}
+		function drawWin() {
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			txt("LEVEL CLEAR", 80, 96, G, "center");
+			if (t >> 4 & 1) txt("TAP A", 80, 122, M, "center");
+		}
+		function draw() {
+			if (win) {
+				drawWin();
+				return;
+			}
+			if (title) {
+				g.fillStyle = "#000";
+				g.fillRect(0, 0, W, H);
+				txt("The", 80, 102, M, "center");
+				g.save();
+				g.scale(2, 2);
+				txt("Wizard", 40, 58, G, "center");
+				g.restore();
+				if (t >> 5 & 1) txt("Tap A to start", 80, 160, M, "center");
+				return;
+			}
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			g.save();
+			g.beginPath();
+			g.rect(0, OY, W, PH);
+			g.clip();
+			let ox = 0, oy = 0;
+			if (trans) {
+				const q = 1 - trans.p;
+				ox = trans.dx * W * q;
+				oy = trans.dy * PH * q;
+				drawMap(trans.old, -trans.dx * W * trans.p, -trans.dy * PH * trans.p);
+			}
+			drawMap(cm, ox, oy);
+			if (!trans) {
+				for (const it of items) if (it.k == 2) spr(GEM, it.x, it.y + (t >> 5 & 1), G, 0, 1);
+				else if (it.l > 120 || t >> 3 & 1) spr(it.k ? HEART : GEM, it.x, it.y, G, 0, 1);
+				for (const e of ens) if (!(e.hit > 0) || t >> 2 & 1) spr(e.sk ? SKF[e.mv ? ((t / 7 | 0) + e.ph) % 6 : 0] : SNF[(t / 13 | 0) + e.ph & 3], e.x, e.y, G, 0, 1);
+				if (sx == 1 && sy == 1 && dog) spr(DOGF[dog.mv ? (t / 10 | 0) & 3 : 0], dog.x, dog.y, G, dog.f, 1);
+				g.fillStyle = G;
+				for (const s of shots) g.fillRect(Math.round(s.x), Math.round(s.y), 6, 6);
+			}
+			if (p.inv <= 0 || t >> 2 & 1) spr(WIZ, p.x + ox, p.y + oy, G, p.d == 3, 1);
+			if (!trans && p.atk > 2 && p.atk < 13) spr(SW[p.d], p.x + SWP[p.d][0], p.y + SWP[p.d][1], G, 0, 1);
+			if (msgT > 0) {
+				const w = msg.length * 8 + 16, y = 116;
+				g.fillStyle = "#000";
+				g.fillRect(80 - w / 2, y, w, 24);
+				g.strokeStyle = G;
+				g.lineWidth = 1;
+				g.strokeRect(80 - w / 2 + .5, 116.5, w - 1, 23);
+				txt(msg, 80, 124, G, "center");
+			}
+			g.restore();
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, OY);
+			g.fillStyle = D;
+			g.fillRect(0, 15, W, 1);
+			for (let i = 0; i < 3; i++) spr(HEART, 4 + i * 10, 4, p.hp >= 2 * i + 2 ? G : p.hp == 2 * i + 1 ? M : D, 0, 1);
+			spr(GEM, 46, 4, G, 0, 1);
+			txt(stones + "/8", 56, 4, stones >= 8 ? G : M);
+			for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+				if (!WORLD[i + "," + j]) continue;
+				g.fillStyle = i == sx && j == sy ? G : D;
+				g.fillRect(136 + i * 6, 2 + j * 4, 5, 3);
+			}
+			if (over || win) {
+				g.fillStyle = "rgba(0,0,0,.75)";
+				g.fillRect(0, OY, W, PH);
+				txt(win ? "YOU WIN!" : "GAME OVER", 80, 100, G, "center");
+				txt("TAP A", 80, 124, M, "center");
+			}
+		}
+		reset();
+		title = 0;
+		return {
+			update,
+			draw
+		};
+	}
+	function bootL3(IN) {
+		const W = 160, H = 240, T = 16, COLS = 10, ROWS = 14, OY = 16, PH = 224, SP = 1.25;
+		const G = "#39ff14", M = "#0e9c24", D = "#07591a";
+		IN.cv;
+		const g = IN.g;
+		IN.wrap;
+		const K = IN.K, joy = IN.joy;
+		const B = (a) => a;
+		const ROCK = [
+			"................",
+			"................",
+			"................",
+			".....######.....",
+			"....##....##....",
+			"...####....##...",
+			"...#..#.##..##..",
+			"..##..###....##.",
+			".##...#......##.",
+			".##...#..#...#..",
+			"..#..##..#####..",
+			"..##.#.....##...",
+			"...###....##....",
+			"....###...#.....",
+			"......#####.....",
+			"................"
+		];
+		const SHRINE = [
+			"................",
+			"................",
+			".......#........",
+			".......#........",
+			".......#........",
+			"......#.#.......",
+			".....#...#......",
+			"....#..#..#.....",
+			"...#..#.#..#....",
+			"..#....#....#...",
+			".#############..",
+			".#...#....#..#..",
+			".##.#.##.#..##..",
+			"..#....#..#.#...",
+			".#############..",
+			"................"
+		];
+		const WIZ = [
+			".......#........",
+			"......###.......",
+			"......###.......",
+			"....#######.....",
+			"...#########....",
+			".....#.#.#......",
+			".....#####......",
+			"....#.###.#.....",
+			"...###...###....",
+			"...#.#######....",
+			"...###.##.##....",
+			".....#.#..##....",
+			"....#..####.....",
+			"...#########....",
+			"...#########....",
+			"...##..#####...."
+		];
+		const SW0 = [
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			".#.##.#.",
+			"########",
+			".#.##.#.",
+			"...##...",
+			"...##...",
+			"..####..",
+			"...##..."
+		];
+		const rot = (a) => {
+			const h = a.length, w = a[0].length, o = [];
+			for (let i = 0; i < w; i++) {
+				let r = "";
+				for (let j = h - 1; j >= 0; j--) r += a[j][i];
+				o.push(r);
+			}
+			return o;
+		};
+		const SW = [
+			SW0,
+			rot(SW0),
+			rot(rot(SW0)),
+			rot(rot(rot(SW0)))
+		];
+		const SWP = [
+			[4, -14],
+			[8, 4],
+			[4, 10],
+			[-8, 4]
+		];
+		const WORLD = {
+			"0,0": [
+				"BBBBBBBBBB",
+				"BB......BB",
+				"B.S...t..B",
+				"B....U...B",
+				"B........B",
+				"B....t...B",
+				"B.t.......",
+				"B.........",
+				"B........B",
+				"B..U.t...B",
+				"B........B",
+				"B........B",
+				"B.......RB",
+				"BBBBBBBBBB"
+			],
+			"1,0": [
+				"BBBBBBBBBB",
+				"BR......BB",
+				"B.........",
+				"B..f..U...",
+				"B........B",
+				"B........B",
+				"..U......B",
+				".........B",
+				"B.....U..B",
+				"B........B",
+				"B.....f..B",
+				"B..U.....B",
+				"BR......BB",
+				"BBBBBBBBBB"
+			],
+			"2,0": [
+				"BBBBBBBBBB",
+				"BB......RB",
+				".........B",
+				"....t....B",
+				"B......U.B",
+				"B........B",
+				"B..k..R..B",
+				"B........B",
+				"B........B",
+				"B.....t..B",
+				"B..U.....B",
+				"B........B",
+				"BR......BB",
+				"BBBB..BBBB"
+			],
+			"1,1": [
+				"BBBBBBBBBB",
+				"BB......RB",
+				"B.........",
+				"B.....U...",
+				"B..t.....B",
+				"B........B",
+				"B........B",
+				"B.....k..B",
+				"B........B",
+				"B........B",
+				"B.U......B",
+				"B........B",
+				"BR......BB",
+				"BBBB..BBBB"
+			],
+			"2,1": [
+				"BBBB..BBBB",
+				"BB......RB",
+				".........B",
+				"....k....B",
+				"B.....U..B",
+				"B........B",
+				"B.R......B",
+				"B........B",
+				"B........B",
+				"B....k...B",
+				"B..U.....B",
+				"B........B",
+				"BR......BB",
+				"BBBBBBBBBB"
+			],
+			"0,2": [
+				"BBBBBBBBBB",
+				"BB......RB",
+				"B........B",
+				"B........B",
+				"B....U...B",
+				"B........B",
+				"B........B",
+				"B........B",
+				"B........B",
+				"B....U...B",
+				"B.........",
+				"B.........",
+				"BR......BB",
+				"BBBBBBBBBB"
+			],
+			"1,2": [
+				"BBBB..BBBB",
+				"BR......BB",
+				"B........B",
+				"B.....R..B",
+				"B....t...B",
+				"B........B",
+				"B........B",
+				"B........B",
+				"B.B......B",
+				"B.....U..B",
+				"...k.....B",
+				".........B",
+				"BB......RB",
+				"BBBBBBBBBB"
+			]
+		};
+		const SORIG = [
+			".....#####......",
+			"....##.#.##.....",
+			"....#..#..#.....",
+			"....###.###.....",
+			".....#####......",
+			"...#########....",
+			"..##.#.#.#.##...",
+			".##..#####..##..",
+			".##....#....##..",
+			".##..#####..##..",
+			".##..#.#.#..##..",
+			".#...#####...#..",
+			"....#######.....",
+			"...##.....##....",
+			"...##.....##....",
+			"..###.....###..."
+		];
+		const SARM = [
+			[2, 6],
+			[3, 6],
+			[1, 7],
+			[2, 7],
+			[1, 8],
+			[2, 8],
+			[1, 9],
+			[2, 9],
+			[1, 10],
+			[2, 10],
+			[1, 11]
+		], SLEG = [
+			[3, 13],
+			[4, 13],
+			[3, 14],
+			[4, 14],
+			[2, 15],
+			[3, 15],
+			[4, 15]
+		], SLEGUP = [
+			[3, 13],
+			[4, 13],
+			[2, 14],
+			[3, 14],
+			[4, 14]
+		];
+		const smir = ([x, y]) => [14 - x, y], skey = ([x, y]) => x + "," + y;
+		const slimbs = new Set([
+			...SARM,
+			...SARM.map(smir),
+			...SLEG,
+			...SLEG.map(smir)
+		].map(skey));
+		const SSTATIC = [];
+		SORIG.forEach((r, y) => [...r].forEach((c, x) => {
+			if (c == "#" && !slimbs.has(skey([x, y]))) SSTATIC.push([x, y]);
+		}));
+		const SLEGT = [
+			[1, 0],
+			[0, 0],
+			[-1, 0],
+			[-1, 1],
+			[0, 1],
+			[1, 1]
+		], SARMT = [
+			0,
+			1,
+			1,
+			0,
+			-1,
+			-1
+		];
+		function sleg(i, r) {
+			const [o, up] = SLEGT[(i + (r ? 3 : 0)) % 6];
+			return (up ? SLEGUP : SLEG).map(([x, y]) => r ? [14 - x + o, y] : [x - o, y]);
+		}
+		function sarm(i, r) {
+			const q = SARMT[(i + (r ? 0 : 3)) % 6];
+			let a = SARM.map(([x, y]) => [x, y]);
+			if (q < 0) a = a.map(([x, y]) => [x, y - 1]);
+			if (q > 0) a.push([2, 11], [1, 12]);
+			return r ? a.map(smir) : a;
+		}
+		const SKF = [
+			0,
+			1,
+			2,
+			3,
+			4,
+			5
+		].map((i) => {
+			const a = Array.from({ length: 16 }, () => Array(16).fill("."));
+			[
+				...SSTATIC,
+				...sleg(i, 0),
+				...sleg(i, 1),
+				...sarm(i, 0),
+				...sarm(i, 1)
+			].forEach(([x, y]) => {
+				if (x >= 0 && x < 16 && y >= 0 && y < 16) a[y][x] = "#";
+			});
+			return a.map((r) => r.join(""));
+		});
+		const SNROWS = [
+			"................",
+			"................",
+			"................",
+			"................",
+			"..##........##..",
+			".####.......#...",
+			"....#.......#...",
+			"....#.......#...",
+			"....#.......#...",
+			"....#.......#...",
+			"....##.....##...",
+			".....#######...."
+		];
+		[
+			0,
+			1,
+			0,
+			-1
+		].map((dx) => {
+			const a = Array.from({ length: 16 }, () => Array(16).fill("."));
+			SNROWS.forEach((r, y) => [...r].forEach((c, x) => {
+				if (c != "#") return;
+				let X = x;
+				if (y <= 5) X = x < 8 ? x + dx : x - dx;
+				if (X >= 0 && X < 16) a[y][X] = "#";
+			}));
+			return a.map((r) => r.join(""));
+		});
+		const TREE2 = [
+			"................",
+			".....##.........",
+			"......##..##....",
+			".......#.##.....",
+			"...#...###......",
+			"..###.###....#..",
+			"....#..##..###..",
+			"....##.#####....",
+			".....######.....",
+			".....#####......",
+			"......####......",
+			"......####......",
+			"......####......",
+			"......#####.....",
+			".....##.##.#....",
+			"....#...#......."
+		];
+		const FORIG = [
+			"................",
+			"......#.........",
+			"....#.#..#......",
+			".....#..#.......",
+			"...#..#.#.#.....",
+			"......#.#.......",
+			"...#.#...#.#....",
+			"..#.#..#..#.#...",
+			"..#...#.#...#...",
+			"...##.....##....",
+			"...#.##.##.#....",
+			"...##.#.#.##....",
+			"....#.....#.....",
+			".....#####......",
+			"................",
+			"................"
+		];
+		const FC = [];
+		FORIG.forEach((r, y) => [...r].forEach((c, x) => {
+			if (c == "#") FC.push([x, y]);
+		}));
+		const FFLAME = FC.filter(([x, y]) => y >= 1 && y <= 5), FINNER = [
+			[5, 6],
+			[9, 6],
+			[4, 7],
+			[7, 7],
+			[10, 7],
+			[6, 8],
+			[8, 8]
+		];
+		const fkey = ([x, y]) => x + "," + y, finn = new Set(FINNER.map(fkey)), FBODY = FC.filter((c) => !FFLAME.includes(c) && !finn.has(fkey(c))), FLIFT = [
+			0,
+			0,
+			-1,
+			-1,
+			0,
+			0
+		];
+		function fpose(f, b) {
+			return [
+				...FFLAME.map(([x, y]) => [x, (y - f + 6) % 6]),
+				...FINNER.map(([x, y]) => [x, y + FLIFT[f] + b]),
+				...FBODY.map(([x, y]) => [x, y + b])
+			];
+		}
+		const FIF = [];
+		for (let f = 0; f < 6; f++) for (let b = 0; b < 2; b++) {
+			const a = Array.from({ length: 16 }, () => Array(16).fill("."));
+			fpose(f, b).forEach(([x, y]) => {
+				if (x >= 0 && x < 16 && y >= 0 && y < 16) a[y][x] = "#";
+			});
+			FIF.push(a.map((r) => r.join("")));
+		}
+		const TORIG = [
+			"................",
+			".....##.........",
+			"......##..##....",
+			".......#.##.....",
+			"...#...###......",
+			"..###.###....#..",
+			"....#..##..###..",
+			"....########....",
+			".....######.....",
+			".....#.#.#......",
+			".....#####......",
+			"......#.##......",
+			"......####......",
+			"......#####.....",
+			".....##.##.#....",
+			"....#...#......."
+		];
+		const TLBR = [
+			[3, 4],
+			[2, 5],
+			[3, 5]
+		], TLBRU = [
+			[3, 3],
+			[2, 4],
+			[3, 4]
+		], TRBR = [
+			[13, 5],
+			[12, 6],
+			[13, 6]
+		], TRBRU = [
+			[13, 4],
+			[12, 5],
+			[13, 5]
+		], TLRT = [
+			[5, 14],
+			[6, 14],
+			[4, 15]
+		], TLRTU = [[5, 13], [4, 14]], TRRT = [
+			[8, 14],
+			[9, 14],
+			[8, 15],
+			[11, 14]
+		], TRRTU = [[8, 14], [11, 13]];
+		const tmov = new Set([
+			...TLBR,
+			...TRBR,
+			...TLRT,
+			...TRRT
+		].map(fkey)), TSTATIC = [];
+		TORIG.forEach((r, y) => [...r].forEach((c, x) => {
+			if (c == "#" && !tmov.has(fkey([x, y]))) TSTATIC.push([x, y]);
+		}));
+		const TRF = [
+			{
+				lr: 1,
+				rr: 0,
+				lb: 0,
+				rb: 1
+			},
+			{
+				lr: 0,
+				rr: 0,
+				lb: 0,
+				rb: 0
+			},
+			{
+				lr: 0,
+				rr: 1,
+				lb: 1,
+				rb: 0
+			},
+			{
+				lr: 0,
+				rr: 0,
+				lb: 0,
+				rb: 0
+			}
+		].map((f) => {
+			const a = Array.from({ length: 16 }, () => Array(16).fill("."));
+			[
+				...TSTATIC,
+				...f.lr ? TLRTU : TLRT,
+				...f.rr ? TRRTU : TRRT,
+				...f.lb ? TLBRU : TLBR,
+				...f.rb ? TRBRU : TRBR
+			].forEach(([x, y]) => {
+				a[y][x] = "#";
+			});
+			return a.map((r) => r.join(""));
+		});
+		function enemySprite(e) {
+			if (e.sk) return SKF[e.mv ? ((t / 7 | 0) + e.ph) % 6 : 0];
+			if (e.fi) return FIF[(t / 6 | 0) % 6 * 2 + ((t / 36 | 0) & 1)];
+			return TRF[e.mv ? ((t / 12 | 0) + e.ph) % 4 : 1];
+		}
+		const RKS = [[
+			"................",
+			"................",
+			"................",
+			"......####......",
+			"......#..##.....",
+			".....##.#.##....",
+			"....##.....##...",
+			"...##...#.#.#...",
+			"...#.#.##...##..",
+			"..##...#...#.#..",
+			"..#.#.##.#...#..",
+			"..##..#..##.##..",
+			"...##.#...#.#...",
+			"....#########...",
+			"................",
+			"................"
+		], ROCK];
+		const DBODY = [
+			"................",
+			"................",
+			"................",
+			".............#..",
+			"......#......#..",
+			".######.....#...",
+			"..#####.....#...",
+			"..#.#.#######...",
+			"..#...#######...",
+			"..###########...",
+			"....#########..."
+		];
+		const DLEGS = [
+			[
+				[4, 11],
+				[3, 12],
+				[4, 12],
+				[3, 13]
+			],
+			[
+				[6, 11],
+				[6, 12],
+				[6, 13]
+			],
+			[
+				[9, 11],
+				[9, 12],
+				[9, 13]
+			],
+			[
+				[12, 11],
+				[12, 12],
+				[13, 12],
+				[13, 13]
+			]
+		];
+		[
+			0,
+			1,
+			2,
+			3
+		].map((st) => {
+			const lift = st == 1 ? [0, 2] : st == 3 ? [1, 3] : [], a = DBODY.map((r) => r.split(""));
+			while (a.length < 16) a.push(".".repeat(16).split(""));
+			DLEGS.forEach((l, i) => l.forEach(([x, y]) => {
+				if (!(lift.includes(i) && y == 13)) a[y][x] = "#";
+			}));
+			return a.map((r) => r.join(""));
+		});
+		const HEART = B([
+			".##..##.",
+			"########",
+			"########",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		]);
+		const GEM = B([
+			"...##...",
+			"..####..",
+			".######.",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		]);
+		function spr(a, x, y, c, flip, p = 2) {
+			g.fillStyle = c;
+			x = Math.round(x);
+			y = Math.round(y);
+			const w = a[0].length;
+			for (let j = 0; j < a.length; j++) for (let i = 0; i < w; i++) if (a[j][flip ? w - 1 - i : i] === "#") g.fillRect(x + i * p, y + j * p, p, p);
+		}
+		const maps = {};
+		function map(sx, sy) {
+			const k = sx + "," + sy;
+			if (maps[k]) return maps[k];
+			const g = WORLD[k], m = [];
+			for (let y = 0; y < ROWS; y++) {
+				m[y] = [];
+				for (let x = 0; x < COLS; x++) {
+					const h = g[y][x];
+					m[y][x] = "UB".includes(h) ? 1 : h == "R" ? 2 : h == "S" ? 3 : 0;
+				}
+			}
+			sx * 91 + sy * 17 + 3;
+			m.v = [];
+			for (let y = 0; y < ROWS; y++) {
+				m.v[y] = [];
+				for (let x = 0; x < COLS; x++) m.v[y][x] = Math.random() < .5 ? 1 : 0;
+			}
+			m.g = g;
+			return maps[k] = m;
+		}
+		const DX = [
+			0,
+			1,
+			0,
+			-1
+		], DY = [
+			-1,
+			0,
+			1,
+			0
+		];
+		let winT = 0, sx, sy, cm, p, gems, ens, shots, items, trans, over, win, stones, S, msg, msgT, t = 0, pa = 0, title = 1;
+		function reset() {
+			sx = 0;
+			sy = 2;
+			cm = map(0, 2);
+			p = {
+				x: 72,
+				y: 112,
+				d: 0,
+				hp: 6,
+				inv: 0,
+				atk: 0,
+				kb: 0,
+				kd: 0
+			};
+			gems = 0;
+			over = 0;
+			win = 0;
+			trans = null;
+			msg = "";
+			msgT = 0;
+			IN.tap = 0;
+			initLevel();
+			enter();
+		}
+		function initLevel() {
+			S = {};
+			stones = 0;
+			for (const k in WORLD) {
+				const sc = S[k] = {
+					ens: [],
+					items: []
+				}, g = WORLD[k];
+				for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+					const h = g[r][c];
+					if ("tfk".includes(h)) sc.ens.push({
+						x: c * T,
+						y: OY + r * T,
+						d: 2,
+						t: 30,
+						cd: 60,
+						hp: h == "t" ? 3 : h == "k" ? 2 : 99,
+						sk: h == "k" ? 1 : 0,
+						fi: h == "f" ? 1 : 0,
+						gs: 0,
+						ph: c + r & 3,
+						mv: 0,
+						wt: 0,
+						wd: 0
+					});
+				}
+			}
+			const all = [];
+			for (const k in S) {
+				const l = S[k].ens.filter((e) => !e.fi);
+				if (l.length) l[Math.random() * l.length | 0].gs = 1;
+				all.push(...l);
+			}
+			const rest = all.filter((e) => !e.gs), n = all.length - rest.length;
+			for (let i = rest.length - 1; i > 0; i--) {
+				const j = Math.random() * (i + 1) | 0;
+				[rest[i], rest[j]] = [rest[j], rest[i]];
+			}
+			rest.slice(0, Math.max(0, 8 - n)).forEach((e) => e.gs = 1);
+		}
+		function enter() {
+			const sc = S[sx + "," + sy];
+			ens = sc.ens;
+			items = sc.items;
+			shots = [];
+		}
+		function sol(x, y) {
+			const c = Math.floor(x / T), r = Math.floor((y - OY) / T);
+			if (c < 0 || r < 0 || c >= COLS || r >= ROWS) {
+				const ox = c < 0 || c >= COLS, oy = r < 0 || r >= ROWS, w = WORLD[sx + (c < 0 ? -1 : c >= COLS ? 1 : 0) + "," + (sy + (r < 0 ? -1 : r >= ROWS ? 1 : 0))];
+				if (!w || ox && oy) return 1;
+				return "UBR".includes(w[(r + ROWS) % ROWS][(c + COLS) % COLS]) ? 1 : 0;
+			}
+			const v = cm[r][c];
+			return v == 1 || v == 2;
+		}
+		function bl(x, y, w, lim) {
+			if (lim && (x < 0 || y < OY || x + w > W || y + w > 240)) return 1;
+			for (const [cx, cy] of [
+				[x, y],
+				[x + w - 1, y],
+				[x, y + w - 1],
+				[x + w - 1, y + w - 1]
+			]) if (sol(cx, cy)) return 1;
+			return 0;
+		}
+		function move(o, dx, dy, ins, lim) {
+			let m = 0;
+			const w = 16 - 2 * ins;
+			if (dx) {
+				const nx = o.x + dx;
+				if (!bl(nx + ins, o.y + ins, w, lim)) {
+					o.x = nx;
+					m = 1;
+				}
+			}
+			if (dy) {
+				const ny = o.y + dy;
+				if (!bl(o.x + ins, ny + ins, w, lim)) {
+					o.y = ny;
+					m = 1;
+				}
+			}
+			return m;
+		}
+		const ov = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+		function hurt(fx, fy) {
+			if (p.inv > 0) return;
+			p.hp--;
+			p.inv = 70;
+			p.atk = 0;
+			p.kb = 8;
+			const dx = p.x - fx, dy = p.y - fy;
+			p.kd = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 1 : 3 : dy > 0 ? 2 : 0;
+			if (p.hp <= 0) over = 1;
+		}
+		function sword() {
+			const x = p.x, y = p.y;
+			return [
+				[
+					x + 5,
+					y - 14,
+					6,
+					14
+				],
+				[
+					x + 10,
+					y + 5,
+					14,
+					6
+				],
+				[
+					x + 5,
+					y + 12,
+					6,
+					14
+				],
+				[
+					x - 8,
+					y + 5,
+					14,
+					6
+				]
+			][p.d];
+		}
+		function startTrans(dx, dy) {
+			trans = {
+				dx,
+				dy,
+				p: 0,
+				old: cm
+			};
+			sx += dx;
+			sy += dy;
+			cm = map(sx, sy);
+			if (dx < 0) p.x = 147;
+			if (dx > 0) p.x = -3;
+			if (dy < 0) p.y = 227;
+			if (dy > 0) p.y = 13;
+			enter();
+		}
+		function dirIn() {
+			let x = joy.x, y = joy.y;
+			if (Math.hypot(x, y) < .35) {
+				x = (K.arrowright || K.d ? 1 : 0) - (K.arrowleft || K.a ? 1 : 0);
+				y = (K.arrowdown || K.s ? 1 : 0) - (K.arrowup || K.w ? 1 : 0);
+			}
+			if (!x && !y) return null;
+			return Math.abs(x) > Math.abs(y) ? x > 0 ? 1 : 3 : y > 0 ? 2 : 0;
+		}
+		const atkIn = () => IN.touchA || K[" "] || K.z || K.x || K.enter;
+		function update() {
+			t++;
+			const a = atkIn();
+			if (title) {
+				if (a && !pa || IN.tap) {
+					title = 0;
+					IN.tap = 0;
+				}
+				pa = a;
+				return;
+			}
+			if (win) winT++;
+			if (over) {
+				if (a && !pa) reset();
+				pa = a;
+				return;
+			}
+			if (win) {
+				if (winT > 45 && a && !pa) {
+					IN.next();
+					return;
+				}
+				pa = a;
+				return;
+			}
+			if (trans) {
+				trans.p += 1 / 22;
+				if (trans.p >= 1) trans = null;
+				pa = a;
+				return;
+			}
+			if (msgT > 0) msgT--;
+			if (p.inv > 0) p.inv--;
+			if (p.kb > 0) {
+				p.kb--;
+				move(p, DX[p.kd] * 2, DY[p.kd] * 2, 3);
+			} else if (p.atk > 0) p.atk--;
+			else if (a && !pa) p.atk = 14;
+			else {
+				const v = dirIn();
+				if (v != null) {
+					p.d = v;
+					move(p, DX[v] * SP, DY[v] * SP, 3);
+				}
+			}
+			pa = a;
+			let dx = 0, dy = 0;
+			if (p.x < -4) dx = -1;
+			else if (p.x > 148) dx = 1;
+			else if (p.y < 12) dy = -1;
+			else if (p.y > 228) dy = 1;
+			if (dx || dy) {
+				startTrans(dx, dy);
+				return;
+			}
+			if (p.atk > 2 && p.atk < 13) {
+				const [a1, b1, c1, d1] = sword();
+				for (let i = ens.length - 1; i >= 0; i--) {
+					const e = ens[i];
+					if (ov(a1, b1, c1, d1, e.x + 2, e.y + 2, 12, 12) && !(e.hit > 0) && !e.fi) {
+						if (--e.hp > 0) {
+							e.hit = 30;
+							e.kb = 6;
+							e.kd = p.d;
+						} else {
+							ens.splice(i, 1);
+							if (e.gs) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 2,
+								l: Infinity
+							});
+							else if (Math.random() < .4) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 1,
+								l: 600
+							});
+						}
+					}
+				}
+			}
+			for (const e of ens) {
+				if (e.hit > 0) e.hit--;
+				if (e.kb > 0) {
+					e.kb--;
+					move(e, DX[e.kd] * 2, DY[e.kd] * 2, 2, 1);
+					continue;
+				}
+				let mv = 0;
+				if (e.sk) {
+					if (e.wt > 0) {
+						e.wt--;
+						mv = move(e, DX[e.wd] * .55, DY[e.wd] * .55, 2, 1);
+						if (!mv) e.wt = 0;
+					} else {
+						const dx = p.x - e.x, dy = p.y - e.y, ax = Math.abs(dx), ay = Math.abs(dy), h = dx > 0 ? 1 : 3, v = dy > 0 ? 2 : 0, a = ax > ay ? h : v, b = ax > ay ? v : h;
+						mv = move(e, DX[a] * .55, DY[a] * .55, 2, 1);
+						if (!mv && Math.min(ax, ay) > 3) mv = move(e, DX[b] * .55, DY[b] * .55, 2, 1);
+						if (!mv) {
+							e.wd = Math.random() * 4 | 0;
+							e.wt = 15 + Math.random() * 20 | 0;
+						}
+					}
+				} else {
+					if (--e.t <= 0) {
+						e.d = Math.random() * 4 | 0;
+						e.t = 50 + Math.random() * 80;
+					}
+					const sp = e.fi ? .35 : .25;
+					mv = move(e, DX[e.d] * sp, DY[e.d] * sp, 2, 1);
+					if (!mv) e.t = 0;
+				}
+				e.mv = mv;
+				if (ov(p.x + 3, p.y + 3, 10, 10, e.x + 2, e.y + 2, 12, 12)) hurt(e.x, e.y);
+			}
+			for (let i = shots.length - 1; i >= 0; i--) {
+				const s = shots[i];
+				s.x += DX[s.d] * 1.6;
+				s.y += DY[s.d] * 1.6;
+				if (s.x < 0 || s.x > 154 || s.y < OY || s.y > 234 || sol(s.x + 3, s.y + 3)) {
+					shots.splice(i, 1);
+					continue;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, s.x, s.y, 6, 6)) {
+					hurt(s.x, s.y);
+					shots.splice(i, 1);
+				}
+			}
+			for (let i = items.length - 1; i >= 0; i--) {
+				const it = items[i];
+				if (--it.l <= 0) {
+					items.splice(i, 1);
+					continue;
+				}
+				const sz = 8;
+				if (ov(p.x + 3, p.y + 3, 10, 10, it.x, it.y, sz, sz)) {
+					if (it.k == 2) stones++;
+					else if (it.k) p.hp = Math.min(6, p.hp + 2);
+					else gems = Math.min(999, gems + 1);
+					items.splice(i, 1);
+				}
+			}
+			const tc = Math.floor((p.x + 8) / T), tr = Math.floor((p.y + 8 - OY) / T);
+			if (cm[tr] && cm[tr][tc] == 3) {
+				if (stones >= 8) {
+					win = 1;
+					winT = 0;
+				}
+			}
+		}
+		function drawMap(m, ox, oy) {
+			for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+				const v = m[r][c], x = c * T + ox, y = OY + r * T + oy;
+				if (v == 1) {
+					if (m.g[r][c] == "U") spr(TREE2, x, y, M, 0, 1);
+					else spr(RKS[m.v[r][c]], x, y, M, 0, 1);
+				} else if (v == 2) spr(RKS[m.v[r][c]], x, y, M, 0, 1);
+				else if (v == 3) spr(SHRINE, x, y, G, 0, 1);
+				else if ((c * 7 + r * 13) % 11 == 0) {
+					g.fillStyle = D;
+					g.fillRect(Math.round(x) + 7, Math.round(y) + 7, 2, 2);
+				}
+			}
+		}
+		function txt(s, x, y, c, al) {
+			g.font = "8px \"Press Start 2P\",monospace";
+			g.textBaseline = "top";
+			g.textAlign = al || "left";
+			g.fillStyle = c;
+			g.fillText(s, x, y);
+		}
+		function drawWin() {
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			txt("LEVEL CLEAR", 80, 96, G, "center");
+			if (t >> 4 & 1) txt("TAP A", 80, 122, M, "center");
+		}
+		function draw() {
+			if (win) {
+				drawWin();
+				return;
+			}
+			if (title) {
+				g.fillStyle = "#000";
+				g.fillRect(0, 0, W, H);
+				txt("The", 80, 102, M, "center");
+				g.save();
+				g.scale(2, 2);
+				txt("Wizard", 40, 58, G, "center");
+				g.restore();
+				if (t >> 5 & 1) txt("Tap A to start", 80, 160, M, "center");
+				return;
+			}
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			g.save();
+			g.beginPath();
+			g.rect(0, OY, W, PH);
+			g.clip();
+			let ox = 0, oy = 0;
+			if (trans) {
+				const q = 1 - trans.p;
+				ox = trans.dx * W * q;
+				oy = trans.dy * PH * q;
+				drawMap(trans.old, -trans.dx * W * trans.p, -trans.dy * PH * trans.p);
+			}
+			drawMap(cm, ox, oy);
+			if (!trans) {
+				for (const it of items) if (it.k == 2) spr(GEM, it.x, it.y + (t >> 5 & 1), G, 0, 1);
+				else if (it.l > 120 || t >> 3 & 1) spr(it.k ? HEART : GEM, it.x, it.y, G, 0, 1);
+				for (const e of ens) if (!(e.hit > 0) || t >> 2 & 1) spr(enemySprite(e), e.x, e.y, G, 0, 1);
+				g.fillStyle = G;
+				for (const s of shots) g.fillRect(Math.round(s.x), Math.round(s.y), 6, 6);
+			}
+			if (p.inv <= 0 || t >> 2 & 1) spr(WIZ, p.x + ox, p.y + oy, G, p.d == 3, 1);
+			if (!trans && p.atk > 2 && p.atk < 13) spr(SW[p.d], p.x + SWP[p.d][0], p.y + SWP[p.d][1], G, 0, 1);
+			if (msgT > 0) {
+				const w = msg.length * 8 + 16, y = 116;
+				g.fillStyle = "#000";
+				g.fillRect(80 - w / 2, y, w, 24);
+				g.strokeStyle = G;
+				g.lineWidth = 1;
+				g.strokeRect(80 - w / 2 + .5, 116.5, w - 1, 23);
+				txt(msg, 80, 124, G, "center");
+			}
+			g.restore();
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, OY);
+			g.fillStyle = D;
+			g.fillRect(0, 15, W, 1);
+			for (let i = 0; i < 3; i++) spr(HEART, 4 + i * 10, 4, p.hp >= 2 * i + 2 ? G : p.hp == 2 * i + 1 ? M : D, 0, 1);
+			spr(GEM, 46, 4, G, 0, 1);
+			txt(stones + "/8", 56, 4, stones >= 8 ? G : M);
+			for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+				if (!WORLD[i + "," + j]) continue;
+				g.fillStyle = i == sx && j == sy ? G : D;
+				g.fillRect(136 + i * 6, 2 + j * 4, 5, 3);
+			}
+			if (over || win) {
+				g.fillStyle = "rgba(0,0,0,.75)";
+				g.fillRect(0, OY, W, PH);
+				txt(win ? "YOU WIN!" : "GAME OVER", 80, 100, G, "center");
+				txt("TAP A", 80, 124, M, "center");
+			}
+		}
+		reset();
+		title = 0;
+		return {
+			update,
+			draw
+		};
+	}
+	function bootL4(IN) {
+		const W = 160, H = 240, T = 16, COLS = 10, ROWS = 14, OY = 16, PH = 224, SP = 1.25;
+		const G = "#39ff14", M = "#0e9c24", D = "#07591a", g = IN.g;
+		IN.wrap;
+		IN.cv;
+		const WIZ = [
+			".......#........",
+			"......###.......",
+			"......###.......",
+			"....#######.....",
+			"...#########....",
+			".....#.#.#......",
+			".....#####......",
+			"....#.###.#.....",
+			"...###...###....",
+			"...#.#######....",
+			"...###.##.##....",
+			".....#.#..##....",
+			"....#..####.....",
+			"...#########....",
+			"...#########....",
+			"...##..#####...."
+		], SW0 = [
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			"...##...",
+			".#.##.#.",
+			"########",
+			".#.##.#.",
+			"...##...",
+			"...##...",
+			"..####..",
+			"...##..."
+		], HEART = [
+			".##..##.",
+			"########",
+			"########",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		], SHRINE = [
+			"................",
+			"................",
+			".......#........",
+			".......#........",
+			".......#........",
+			"......#.#.......",
+			".....#...#......",
+			"....#..#..#.....",
+			"...#..#.#..#....",
+			"..#....#....#...",
+			".#############..",
+			".#...#....#..#..",
+			".##.#.##.#..##..",
+			"..#....#..#.#...",
+			".#############..",
+			"................"
+		], GEM = [
+			"...##...",
+			"..####..",
+			".######.",
+			"########",
+			".######.",
+			"..####..",
+			"...##...",
+			"........"
+		];
+		const WALL = [
+			"################",
+			"###..........###",
+			"###...#...#..###",
+			"#..#........#..#",
+			"#...#...#..#...#",
+			"#.#..#....#....#",
+			"#.....#..#...#.#",
+			"#..#...##..#...#",
+			"#....#.##......#",
+			"#.#...#..#..#..#",
+			"#....#....#....#",
+			"#...#..#...#...#",
+			"#..#........#..#",
+			"###..#...#...###",
+			"###..........###",
+			"################"
+		], ROOM = [
+			"################",
+			"################",
+			"##............##",
+			"##.#.#....#.#.##",
+			"##............##",
+			"##.#........#.##",
+			"##............##",
+			"##............##",
+			"##............##",
+			"##............##",
+			"##.#........#.##",
+			"##............##",
+			"##.#.#....#.#.##",
+			"##............##",
+			"################",
+			"################"
+		], DOOR = [
+			"................",
+			"..############..",
+			".##..........##.",
+			".#............#.",
+			".#..#..##..#..#.",
+			".#............#.",
+			".#............#.",
+			".#..#..##..#..#.",
+			".#..#..##..#..#.",
+			".#............#.",
+			".#............#.",
+			".#..#..##..#..#.",
+			".#............#.",
+			".##..........##.",
+			"..############..",
+			"................"
+		];
+		const rot = (a) => {
+			const h = a.length, w = a[0].length, o = [];
+			for (let i = 0; i < w; i++) {
+				let r = "";
+				for (let j = h - 1; j >= 0; j--) r += a[j][i];
+				o.push(r);
+			}
+			return o;
+		};
+		const SW = [
+			SW0,
+			rot(SW0),
+			rot(rot(SW0)),
+			rot(rot(rot(SW0)))
+		], SWP = [
+			[4, -14],
+			[8, 4],
+			[4, 10],
+			[-8, 4]
+		];
+		function spr(a, x, y, c, flip) {
+			g.fillStyle = c;
+			x = Math.round(x);
+			y = Math.round(y);
+			const w = a[0].length;
+			for (let j = 0; j < a.length; j++) for (let i = 0; i < w; i++) if (a[j][flip ? w - 1 - i : i] === "#") g.fillRect(x + i, y + j, 1, 1);
+		}
+		const key = ([x, y]) => x + "," + y;
+		const SK = [
+			".....#####......",
+			"....##.#.##.....",
+			"....#..#..#.....",
+			"....###.###.....",
+			".....#####......",
+			"...#########....",
+			"..##.#.#.#.##...",
+			".##..#####..##..",
+			".##....#....##..",
+			".##..#####..##..",
+			".##..#.#.#..##..",
+			".#...#####...#..",
+			"....#######.....",
+			"...##.....##....",
+			"...##.....##....",
+			"..###.....###..."
+		];
+		const SARM = [
+			[2, 6],
+			[3, 6],
+			[1, 7],
+			[2, 7],
+			[1, 8],
+			[2, 8],
+			[1, 9],
+			[2, 9],
+			[1, 10],
+			[2, 10],
+			[1, 11]
+		], SLEG = [
+			[3, 13],
+			[4, 13],
+			[3, 14],
+			[4, 14],
+			[2, 15],
+			[3, 15],
+			[4, 15]
+		], SLEG_UP = [
+			[3, 13],
+			[4, 13],
+			[2, 14],
+			[3, 14],
+			[4, 14]
+		];
+		const m14 = ([x, y]) => [14 - x, y];
+		const sLimbs = new Set([
+			...SARM,
+			...SARM.map(m14),
+			...SLEG,
+			...SLEG.map(m14)
+		].map(key)), SSTATIC = [];
+		SK.forEach((r, y) => [...r].forEach((c, x) => {
+			if (c == "#" && !sLimbs.has(key([x, y]))) SSTATIC.push([x, y]);
+		}));
+		const LEGT = [
+			[1, 0],
+			[0, 0],
+			[-1, 0],
+			[-1, 1],
+			[0, 1],
+			[1, 1]
+		], ARMT = [
+			0,
+			1,
+			1,
+			0,
+			-1,
+			-1
+		];
+		function sLeg(i, r) {
+			const [o, up] = LEGT[(i + (r ? 3 : 0)) % 6];
+			return (up ? SLEG_UP : SLEG).map(([x, y]) => r ? [14 - x + o, y] : [x - o, y]);
+		}
+		function sArm(i, r) {
+			const s = ARMT[(i + (r ? 0 : 3)) % 6];
+			let a = SARM.map(([x, y]) => [x, y]);
+			if (s < 0) a = a.map(([x, y]) => [x, y - 1]);
+			if (s > 0) a.push([2, 11], [1, 12]);
+			return r ? a.map(m14) : a;
+		}
+		const skPose = (i) => [
+			...SSTATIC,
+			...sLeg(i, 0),
+			...sLeg(i, 1),
+			...sArm(i, 0),
+			...sArm(i, 1)
+		];
+		const DM = [
+			"................",
+			"................",
+			"....##....##....",
+			".. .#..#..#..#...".replace(" ", ""),
+			".....######.....",
+			".....#.##.#.....",
+			"....########....",
+			"..#####..#####..",
+			"..#..#.##.#..#..",
+			".##..######..##.",
+			".#....#..#....#.",
+			".#..##....##..#.",
+			".#.#........#.#.",
+			".#............#.",
+			"###..........###",
+			"###..........###"
+		];
+		const m15 = ([x, y]) => [15 - x, y];
+		const FOOT = [
+			[0, 14],
+			[1, 14],
+			[2, 14],
+			[0, 15],
+			[1, 15],
+			[2, 15]
+		], FOOT_UP = [
+			[0, 13],
+			[2, 13],
+			[0, 14],
+			[1, 14],
+			[2, 14]
+		], CLAW = [
+			[4, 11],
+			[5, 11],
+			[3, 12]
+		], CLAW_UP = [
+			[4, 10],
+			[5, 10],
+			[3, 11]
+		];
+		const dMoving = new Set([
+			...FOOT,
+			...FOOT.map(m15),
+			...CLAW,
+			...CLAW.map(m15)
+		].map(key)), DSTATIC = [];
+		DM.forEach((r, y) => [...r].forEach((c, x) => {
+			if (c == "#" && !dMoving.has(key([x, y]))) DSTATIC.push([x, y]);
+		}));
+		const REST = {
+			lf: 0,
+			rf: 0,
+			lc: 0,
+			rc: 0,
+			lh: 0,
+			rh: 0
+		};
+		const BEATS = [
+			[REST, 90],
+			[{
+				lf: 1,
+				rf: 0,
+				lc: 0,
+				rc: 1,
+				lh: 0,
+				rh: 1
+			}, 150],
+			[REST, 90],
+			[{
+				lf: 0,
+				rf: 1,
+				lc: 1,
+				rc: 0,
+				lh: 1,
+				rh: 0
+			}, 150]
+		], CYC = 480;
+		function dmPose(ms) {
+			let m = ms % CYC, s = REST;
+			for (const [b, d] of BEATS) {
+				if (m < d) {
+					s = b;
+					break;
+				}
+				m -= d;
+			}
+			return [
+				...DSTATIC,
+				...s.lf ? FOOT_UP : FOOT,
+				...(s.rf ? FOOT_UP : FOOT).map(m15),
+				...s.lc ? CLAW_UP : CLAW,
+				...(s.rc ? CLAW_UP : CLAW).map(m15),
+				...s.lh ? [[2, 4]] : [],
+				...(s.rh ? [[2, 4]] : []).map(m15)
+			];
+		}
+		const SRC = {
+			"0,0": [
+				"WWWWWWWWWW",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........D",
+				"W........W",
+				"WWWWWWWWWW"
+			],
+			"1,0": [
+				"WWWWWWWWWW",
+				"W........W",
+				"W........D",
+				"W....BBBBW",
+				"W...S....W",
+				"W........W",
+				"W........W",
+				"W.....S..W",
+				"W........W",
+				"W........W",
+				"WBBBBS...W",
+				"D........W",
+				"W........W",
+				"WWWWWWWWWW"
+			],
+			"2,0": [
+				"WWWWWWWWWW",
+				"W.......SW",
+				"D........W",
+				"WBBB..BBBW",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W.....E..W",
+				"W..E.....W",
+				"W........W",
+				"W........W",
+				"WWWWWWWDWW"
+			],
+			"0,1": [
+				"WWWWWWWWWW",
+				"W........W",
+				"W........D",
+				"W.S......W",
+				"W........W",
+				"W........W",
+				"W.....S..W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W.S......W",
+				"W........W",
+				"W........W",
+				"WWDWWWWWWW"
+			],
+			"1,1": [
+				"WWWWWWWWWW",
+				"W........W",
+				"D..E.....W",
+				"W........W",
+				"WBBBBB.BBW",
+				"W........W",
+				"W........W",
+				"W......E.W",
+				"W........W",
+				"WBB.BBBBBW",
+				"W........W",
+				"W.E......D",
+				"W........W",
+				"WWWWWWWWWW"
+			],
+			"2,1": [
+				"WWWWWWWDWW",
+				"W.....B.BW",
+				"W.B.BBB.BW",
+				"W.B.....BW",
+				"W.BBB.BBBW",
+				"W...B.B..W",
+				"WBB.B...BW",
+				"W..SBBB.BW",
+				"WBBBB....W",
+				"W...BSBB.W",
+				"W.B.BBBB.W",
+				"D.B.B....W",
+				"WBB...B.BW",
+				"WWWWWWWWWW"
+			],
+			"0,2": [
+				"WWDWWWWWWW",
+				"W........W",
+				"W......S.W",
+				"W.E......W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W.....E..W",
+				"W........W",
+				"W.S......W",
+				"W.........",
+				"W........W",
+				"WWWWWWWWWW"
+			],
+			"1,2": [
+				"WWWWWWWWWW",
+				"W........W",
+				"W......S.D",
+				"W.BBBBBBBW",
+				"WS.......W",
+				"WBBBBBBB.W",
+				"W........W",
+				"W..S.....W",
+				"W.BBBBBBBW",
+				"W....S...W",
+				"WBBBBBBB.W",
+				".........W",
+				"W........W",
+				"WWWWWWWWWW"
+			],
+			"2,2": [
+				"WWWWWWWWWW",
+				"W........W",
+				"D......S.W",
+				"W........W",
+				"W....S...W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W........W",
+				"W....S...W",
+				"W........W",
+				"W......S.W",
+				"W.......HW",
+				"WWWWWWWWWW"
+			]
+		};
+		const MAP = {}, SCR = {}, DOORS = [], doorAt = {};
+		for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+			const k = i + "," + j, m = [], sc = SCR[k] = {
+				doors: [],
+				spawns: []
+			};
+			for (let r = 0; r < ROWS; r++) {
+				m[r] = [];
+				for (let c = 0; c < COLS; c++) {
+					const ch = SRC[k][r][c];
+					let v = 0;
+					if (ch == "W") v = 1;
+					else if (ch == "B") v = 2;
+					else if (ch == "H") v = 3;
+					else if (ch == "S" || ch == "E") sc.spawns.push({
+						tp: ch == "S" ? "skel" : "demon",
+						c,
+						r
+					});
+					else if (ch == "D") {
+						v = 5;
+						const [pi, pj, pc, pr] = c == 9 ? [
+							i + 1,
+							j,
+							0,
+							r
+						] : c == 0 ? [
+							i - 1,
+							j,
+							9,
+							r
+						] : r == 13 ? [
+							i,
+							j + 1,
+							c,
+							0
+						] : [
+							i,
+							j - 1,
+							c,
+							13
+						];
+						const a = k + "," + c + "," + r, id = [a, pi + "," + pj + "," + pc + "," + pr].sort().join("|");
+						let d = DOORS.find((x) => x.id == id);
+						if (!d) {
+							d = {
+								id,
+								st: 0,
+								bt: 0,
+								t: {},
+								scr: [k, pi + "," + pj]
+							};
+							d.t[k] = [c, r];
+							d.t[pi + "," + pj] = [pc, pr];
+							DOORS.push(d);
+						}
+						doorAt[a] = d;
+						if (!sc.doors.includes(d)) sc.doors.push(d);
+					}
+					m[r][c] = v;
+				}
+			}
+			MAP[k] = m;
+		}
+		let sx, sy, cm, p, ens, items, shots, stones, msg = "", msgT = 0, trans, over, win, sc, t = 0, pa = 0;
+		function reset() {
+			stones = 0;
+			msg = "";
+			msgT = 0;
+			sx = 0;
+			sy = 0;
+			cm = MAP["0,0"];
+			over = 0;
+			win = 0;
+			trans = null;
+			p = {
+				x: 72,
+				y: 112,
+				d: 2,
+				hp: 6,
+				inv: 0,
+				atk: 0,
+				kb: 0,
+				kd: 0,
+				lock: null
+			};
+			DOORS.forEach((d) => {
+				d.st = 0;
+				d.bt = 0;
+			});
+			for (const k in SCR) {
+				const s = SCR[k];
+				s.cleared = 0;
+				s.items = [];
+				s.ens = s.spawns.map((o) => ({
+					tp: o.tp,
+					x: o.c * T,
+					y: OY + o.r * T,
+					d: 2,
+					t: 30,
+					hp: o.tp == "demon" ? 2 : 1,
+					hit: 0,
+					kb: 0,
+					kd: 0,
+					pt: 0,
+					tx: 0,
+					ty: 0,
+					cd: 40 + (Math.random() * 80 | 0)
+				}));
+				if (s.ens.length) s.ens[Math.random() * s.ens.length | 0].gs = 1;
+			}
+			enter();
+		}
+		function enter() {
+			sc = SCR[sx + "," + sy];
+			ens = sc.ens;
+			items = sc.items;
+			shots = [];
+		}
+		function sol(x, y) {
+			const c = Math.floor(x / T), r = Math.floor((y - OY) / T);
+			if (c < 0 || r < 0 || c >= COLS || r >= ROWS) {
+				const nx = sx + (c < 0 ? -1 : c >= COLS ? 1 : 0), ny = sy + (r < 0 ? -1 : r >= ROWS ? 1 : 0);
+				return nx < 0 || ny < 0 || nx > 2 || ny > 2 ? 1 : 0;
+			}
+			const v = cm[r][c];
+			if (v == 5) return doorAt[sx + "," + sy + "," + c + "," + r].st != 2 ? 1 : 0;
+			return v == 1 || v == 2 ? 1 : 0;
+		}
+		function bl(x, y, w, lim) {
+			if (lim && (x < 0 || y < OY || x + w > W || y + w > 240)) return 1;
+			for (const [cx, cy] of [
+				[x, y],
+				[x + w - 1, y],
+				[x, y + w - 1],
+				[x + w - 1, y + w - 1]
+			]) if (sol(cx, cy)) return 1;
+			return 0;
+		}
+		function move(o, dx, dy, ins, lim) {
+			let m = 0;
+			const w = 16 - 2 * ins;
+			if (dx) {
+				const nx = o.x + dx;
+				if (!bl(nx + ins, o.y + ins, w, lim)) {
+					o.x = nx;
+					m = 1;
+				}
+			}
+			if (dy) {
+				const ny = o.y + dy;
+				if (!bl(o.x + ins, ny + ins, w, lim)) {
+					o.y = ny;
+					m = 1;
+				}
+			}
+			return m;
+		}
+		const DX = [
+			0,
+			1,
+			0,
+			-1
+		], DY = [
+			-1,
+			0,
+			1,
+			0
+		];
+		const ov = (ax, ay, aw, ah, bx, by, bw, bh) => ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+		function hurt(fx, fy) {
+			if (p.inv > 0) return;
+			p.hp--;
+			p.inv = 70;
+			p.atk = 0;
+			p.kb = 8;
+			const dx = p.x - fx, dy = p.y - fy;
+			p.kd = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 1 : 3 : dy > 0 ? 2 : 0;
+			if (p.hp <= 0) over = 1;
+		}
+		function sword() {
+			const x = p.x, y = p.y;
+			return [
+				[
+					x + 5,
+					y - 14,
+					6,
+					14
+				],
+				[
+					x + 10,
+					y + 5,
+					14,
+					6
+				],
+				[
+					x + 5,
+					y + 12,
+					6,
+					14
+				],
+				[
+					x - 8,
+					y + 5,
+					14,
+					6
+				]
+			][p.d];
+		}
+		function nextStep(e) {
+			const sc0 = Math.max(0, Math.min(9, Math.round(e.x / T))), sr0 = Math.max(0, Math.min(13, Math.round((e.y - OY) / T)));
+			const gc = Math.max(0, Math.min(9, Math.floor((p.x + 8) / T))), gr = Math.max(0, Math.min(13, Math.floor((p.y + 8 - OY) / T)));
+			const free = (c, r) => {
+				const v = cm[r][c];
+				return !(v == 1 || v == 2 || v == 5 && doorAt[sx + "," + sy + "," + c + "," + r].st != 2);
+			};
+			const prev = {}, q = [[sc0, sr0]];
+			prev[sc0 + "," + sr0] = null;
+			while (q.length) {
+				const [c, r] = q.shift();
+				if (c == gc && r == gr) break;
+				for (let d = 0; d < 4; d++) {
+					const nc = c + DX[d], nr = r + DY[d];
+					if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS || nc + "," + nr in prev || !free(nc, nr)) continue;
+					prev[nc + "," + nr] = [c, r];
+					q.push([nc, nr]);
+				}
+			}
+			let cur = gc + "," + gr;
+			if (!(cur in prev)) return null;
+			while (prev[cur] && prev[prev[cur].join()]) cur = prev[cur].join();
+			const [c, r] = cur.split(",").map(Number);
+			return [c * T, OY + r * T];
+		}
+		function startTrans(dx, dy) {
+			const old = sx + "," + sy;
+			sx += dx;
+			sy += dy;
+			cm = MAP[sx + "," + sy];
+			trans = {
+				dx,
+				dy,
+				p: 0,
+				old: MAP[old],
+				oldKey: old
+			};
+			if (dx < 0) p.x = 147;
+			if (dx > 0) p.x = -3;
+			if (dy < 0) p.y = 227;
+			if (dy > 0) p.y = 13;
+			const nk = sx + "," + sy;
+			p.lock = DOORS.find((d) => d.scr.includes(old) && d.scr.includes(nk)) || null;
+			enter();
+		}
+		const K = IN.K, joy = IN.joy;
+		function dirIn() {
+			let x = joy.x, y = joy.y;
+			if (Math.hypot(x, y) < .35) {
+				x = (K.arrowright || K.d ? 1 : 0) - (K.arrowleft || K.a ? 1 : 0);
+				y = (K.arrowdown || K.s ? 1 : 0) - (K.arrowup || K.w ? 1 : 0);
+			}
+			if (!x && !y) return null;
+			return Math.abs(x) > Math.abs(y) ? x > 0 ? 1 : 3 : y > 0 ? 2 : 0;
+		}
+		const atkIn = () => IN.touchA || K[" "] || K.z || K.x || K.enter;
+		function update() {
+			t++;
+			const a = atkIn();
+			if (over) {
+				if (a && !pa) reset();
+				pa = a;
+				return;
+			}
+			if (win) {
+				if (a && !pa) {
+					IN.next();
+					return;
+				}
+				pa = a;
+				return;
+			}
+			if (trans) {
+				trans.p += 1 / 22;
+				if (trans.p >= 1) trans = null;
+				pa = a;
+				return;
+			}
+			if (p.inv > 0) p.inv--;
+			if (p.kb > 0) {
+				p.kb--;
+				move(p, DX[p.kd] * 2, DY[p.kd] * 2, 3);
+			} else if (p.atk > 0) p.atk--;
+			else if (a && !pa) p.atk = 14;
+			else {
+				const v = dirIn();
+				if (v != null) {
+					p.d = v;
+					move(p, DX[v] * SP, DY[v] * SP, 3);
+				}
+			}
+			pa = a;
+			let dx = 0, dy = 0;
+			if (p.x < -4) dx = -1;
+			else if (p.x > 148) dx = 1;
+			else if (p.y < 12) dy = -1;
+			else if (p.y > 228) dy = 1;
+			if (dx || dy) {
+				startTrans(dx, dy);
+				return;
+			}
+			if (p.lock) {
+				const [c, r] = p.lock.t[sx + "," + sy];
+				if (!ov(p.x + 3, p.y + 3, 10, 10, c * T, OY + r * T, T, T)) {
+					p.lock.st = 3;
+					p.lock = null;
+				}
+			}
+			if (!sc.cleared && ens.length == 0 && !items.some((i) => i.k == 2)) {
+				sc.cleared = 1;
+				sc.doors.forEach((d) => {
+					if (d.st == 0) {
+						d.st = 1;
+						d.bt = 72;
+					}
+				});
+			}
+			DOORS.forEach((d) => {
+				if (d.st == 1 && --d.bt <= 0) d.st = 2;
+			});
+			if (p.atk > 2 && p.atk < 13) {
+				const [a1, b1, c1, d1] = sword();
+				for (let i = ens.length - 1; i >= 0; i--) {
+					const e = ens[i];
+					if (ov(a1, b1, c1, d1, e.x + 2, e.y + 2, 12, 12) && !(e.hit > 0)) {
+						if (--e.hp > 0) {
+							e.hit = 30;
+							e.kb = 6;
+							e.kd = p.d;
+						} else {
+							ens.splice(i, 1);
+							if (e.gs) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 2,
+								l: Infinity
+							});
+							else if (Math.random() < .3) items.push({
+								x: e.x + 4,
+								y: e.y + 4,
+								k: 0,
+								l: 600
+							});
+						}
+					}
+				}
+			}
+			for (const e of ens) {
+				if (e.hit > 0) e.hit--;
+				if (e.kb > 0) {
+					e.kb--;
+					move(e, DX[e.kd] * 2, DY[e.kd] * 2, 2, 1);
+					continue;
+				}
+				if (e.tp == "skel") {
+					if (--e.pt <= 0) {
+						const s = nextStep(e);
+						e.pt = 12;
+						if (s) {
+							e.tx = s[0];
+							e.ty = s[1];
+						} else {
+							e.tx = e.x;
+							e.ty = e.y;
+						}
+					}
+					const ddx = e.tx - e.x, ddy = e.ty - e.y, sp = .7, sx2 = Math.sign(ddx) * Math.min(sp, Math.abs(ddx)), sy2 = Math.sign(ddy) * Math.min(sp, Math.abs(ddy));
+					if (Math.abs(ddx) >= Math.abs(ddy)) {
+						move(e, sx2, 0, 2, 1);
+						if (Math.abs(ddy) > 0) move(e, 0, sy2 * .6, 2, 1);
+					} else {
+						move(e, 0, sy2, 2, 1);
+						if (Math.abs(ddx) > 0) move(e, sx2 * .6, 0, 2, 1);
+					}
+					if (--e.cd <= 0 && Math.random() < .02) {
+						const ex = p.x - e.x, ey = p.y - e.y;
+						shots.push({
+							x: e.x + 5,
+							y: e.y + 5,
+							d: Math.abs(ex) > Math.abs(ey) ? ex > 0 ? 1 : 3 : ey > 0 ? 2 : 0
+						});
+						e.cd = 100;
+					}
+				} else {
+					if (--e.t <= 0) {
+						e.d = Math.random() * 4 | 0;
+						e.t = 40 + Math.random() * 60;
+					}
+					if (!move(e, DX[e.d] * .5, DY[e.d] * .5, 2, 1)) e.t = 0;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, e.x + 2, e.y + 2, 12, 12)) hurt(e.x, e.y);
+			}
+			for (let i = shots.length - 1; i >= 0; i--) {
+				const s = shots[i];
+				s.x += DX[s.d] * 1.6;
+				s.y += DY[s.d] * 1.6;
+				if (s.x < 0 || s.x > 154 || s.y < OY || s.y > 234 || sol(s.x + 3, s.y + 3)) {
+					shots.splice(i, 1);
+					continue;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, s.x, s.y, 6, 6)) {
+					hurt(s.x, s.y);
+					shots.splice(i, 1);
+				}
+			}
+			for (let i = items.length - 1; i >= 0; i--) {
+				const it = items[i];
+				if (--it.l <= 0) {
+					items.splice(i, 1);
+					continue;
+				}
+				if (ov(p.x + 3, p.y + 3, 10, 10, it.x, it.y, 8, 8)) {
+					if (it.k == 2) stones++;
+					else p.hp = Math.min(6, p.hp + 2);
+					items.splice(i, 1);
+				}
+			}
+			const tc = Math.floor((p.x + 8) / T), tr = Math.floor((p.y + 8 - OY) / T);
+			if (msgT > 0) msgT--;
+			if (cm[tr] && cm[tr][tc] == 3) {
+				if (stones >= 8) win = 1;
+				else if (msgT == 0) {
+					msg = "NEED 8 GEMSTONES";
+					msgT = 90;
+				}
+			}
+		}
+		function drawMap(m, key, ox, oy) {
+			for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+				const v = m[r][c], x = c * T + ox, y = OY + r * T + oy;
+				if (v == 1) spr(WALL, x, y, M);
+				else if (v == 2) spr(ROOM, x, y, M);
+				else if (v == 3) spr(SHRINE, x, y, G);
+				else if (v == 5) {
+					const d = doorAt[key + "," + c + "," + r];
+					if (d.st == 0 || d.st == 3 || d.st == 1 && Math.floor(d.bt / 9) % 2 == 0) spr(DOOR, x, y, G);
+				} else if ((c * 7 + r * 13) % 11 == 0) {
+					g.fillStyle = D;
+					g.fillRect(Math.round(x) + 7, Math.round(y) + 7, 2, 2);
+				}
+			}
+		}
+		function txt(s, x, y, c, al) {
+			g.font = "8px \"Press Start 2P\",monospace";
+			g.textBaseline = "top";
+			g.textAlign = al || "left";
+			g.fillStyle = c;
+			g.fillText(s, x, y);
+		}
+		function draw() {
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, H);
+			g.save();
+			g.beginPath();
+			g.rect(0, OY, W, PH);
+			g.clip();
+			let ox = 0, oy = 0;
+			if (trans) {
+				const q = 1 - trans.p;
+				ox = trans.dx * W * q;
+				oy = trans.dy * PH * q;
+				drawMap(trans.old, trans.oldKey, -trans.dx * W * trans.p, -trans.dy * PH * trans.p);
+			}
+			drawMap(cm, sx + "," + sy, ox, oy);
+			if (!trans) {
+				for (const it of items) if (it.k == 2) spr(GEM, it.x, it.y + (t >> 5 & 1), G);
+				else if (it.l > 120 || t >> 3 & 1) spr(HEART, it.x, it.y, G);
+				g.fillStyle = G;
+				for (const s of shots) g.fillRect(Math.round(s.x), Math.round(s.y), 6, 6);
+				for (const e of ens) {
+					if (e.hit > 0 && !(t >> 2 & 1)) continue;
+					g.fillStyle = G;
+					(e.tp == "skel" ? skPose(Math.floor(t / 7) % 6) : dmPose(t * 16.667)).forEach(([x, y]) => g.fillRect(Math.round(e.x) + x, Math.round(e.y) + y, 1, 1));
+				}
+			}
+			if (p.inv <= 0 || t >> 2 & 1) spr(WIZ, p.x + ox, p.y + oy, G, p.d == 3);
+			if (!trans && p.atk > 2 && p.atk < 13) spr(SW[p.d], p.x + SWP[p.d][0], p.y + SWP[p.d][1], G);
+			if (msgT > 0) {
+				const w = msg.length * 8 + 16, y = 116;
+				g.fillStyle = "#000";
+				g.fillRect(80 - w / 2, y, w, 24);
+				g.strokeStyle = G;
+				g.lineWidth = 1;
+				g.strokeRect(80 - w / 2 + .5, 116.5, w - 1, 23);
+				txt(msg, 80, 124, G, "center");
+			}
+			g.restore();
+			g.fillStyle = "#000";
+			g.fillRect(0, 0, W, OY);
+			g.fillStyle = D;
+			g.fillRect(0, 15, W, 1);
+			for (let i = 0; i < 3; i++) spr(HEART, 4 + i * 10, 4, p.hp >= 2 * i + 2 ? G : p.hp == 2 * i + 1 ? M : D);
+			spr(GEM, 46, 4, G);
+			txt(stones + "/8", 56, 4, stones >= 8 ? G : M);
+			txt("L4", 116, 4, G);
+			for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) {
+				g.fillStyle = i == sx && j == sy ? G : D;
+				g.fillRect(136 + i * 6, 2 + j * 4, 5, 3);
+			}
+			if (over || win) {
+				g.fillStyle = "rgba(0,0,0,.75)";
+				g.fillRect(0, OY, W, PH);
+				txt(win ? "LEVEL CLEAR" : "GAME OVER", 80, 100, G, "center");
+				txt("TAP A", 80, 124, M, "center");
+			}
+		}
+		reset();
+		return {
+			update,
+			draw
+		};
+	}
+	//#endregion
+	//#region src/game/campaign.ts
+	const boots = [
+		bootL1,
+		bootL2,
+		bootL3,
+		bootL4
+	];
+	function startCampaign(cv, wrap) {
+		const ctx = cv.getContext("2d");
+		if (!ctx) throw new Error("no canvas");
+		const g = ctx;
+		const ring = wrap.querySelector("#ring");
+		const knob = wrap.querySelector("#knob");
+		const btn = wrap.querySelector("#a");
+		const K = {};
+		const joy = {
+			on: false,
+			id: -1,
+			ox: 0,
+			oy: 0,
+			x: 0,
+			y: 0
+		};
+		let touchA = false;
+		let tap = 0;
+		let dead = false;
+		let raf = 0;
+		let last = 0;
+		let acc = 0;
+		let stage = 0;
+		let cur = null;
+		let finalStop = null;
+		let runningFinal = false;
+		const input = {
+			cv,
+			g,
+			wrap,
+			K,
+			joy,
+			get touchA() {
+				return touchA;
+			},
+			set touchA(v) {
+				touchA = v;
+			},
+			get tap() {
+				return tap;
+			},
+			set tap(v) {
+				tap = v;
+			},
+			next() {
+				go(stage + 1);
+			}
+		};
+		function go(i) {
+			stage = i;
+			tap = 0;
+			touchA = false;
+			joy.x = 0;
+			joy.y = 0;
+			for (const k of Object.keys(K)) K[k] = 0;
+			if (i >= boots.length) {
+				runningFinal = true;
+				cur = null;
+				finalStop = runFinal(cv, wrap, { onReplay() {
+					const stop = finalStop;
+					finalStop = null;
+					runningFinal = false;
+					stop?.();
+					go(0);
+					last = 0;
+					acc = 0;
+					cancelAnimationFrame(raf);
+					raf = requestAnimationFrame(loop);
+				} });
+				return;
+			}
+			runningFinal = false;
+			cur = boots[i](input);
+		}
+		function loop(ts) {
+			if (dead || runningFinal) return;
+			acc += Math.min(ts - (last || ts), 100);
+			last = ts;
+			while (acc >= 16.67) {
+				cur?.update();
+				acc -= 16.67;
+				if (runningFinal || dead) return;
+			}
+			cur?.draw();
+			raf = requestAnimationFrame(loop);
+		}
+		function keyName(e) {
+			return e.key.toLowerCase();
+		}
+		const down = (e) => {
+			if (runningFinal) return;
+			const k = keyName(e);
+			K[k] = 1;
+			if (k.startsWith("arrow") || k === " ") e.preventDefault();
+		};
+		const up = (e) => {
+			if (runningFinal) return;
+			K[keyName(e)] = 0;
+		};
+		const blur = () => {
+			for (const k of Object.keys(K)) K[k] = 0;
+			touchA = false;
+			joy.on = false;
+			joy.x = joy.y = 0;
+			ring.style.opacity = "0";
+			knob.style.transform = "";
+		};
+		const poke = () => {
+			if (!runningFinal) tap = 1;
+		};
+		const joyDown = (e) => {
+			if (runningFinal || e.target === btn || joy.on) return;
+			const r = wrap.getBoundingClientRect();
+			if (e.clientX - r.left > r.width * .6) return;
+			joy.on = true;
+			joy.id = e.pointerId;
+			joy.ox = e.clientX;
+			joy.oy = e.clientY;
+			ring.style.left = e.clientX - r.left + "px";
+			ring.style.top = e.clientY - r.top + "px";
+			ring.style.opacity = "0.7";
+			try {
+				wrap.setPointerCapture(e.pointerId);
+			} catch {}
+		};
+		const joyMove = (e) => {
+			if (runningFinal || !joy.on || e.pointerId !== joy.id) return;
+			let dx = (e.clientX - joy.ox) / 32;
+			let dy = (e.clientY - joy.oy) / 32;
+			const m = Math.hypot(dx, dy);
+			if (m > 1) {
+				dx /= m;
+				dy /= m;
+			}
+			joy.x = dx;
+			joy.y = dy;
+			knob.style.transform = `translate(${dx * 22}px,${dy * 22}px)`;
+		};
+		const joyEnd = (e) => {
+			if (e.pointerId !== joy.id) return;
+			joy.on = false;
+			joy.x = joy.y = 0;
+			ring.style.opacity = "0";
+			knob.style.transform = "";
+		};
+		const aDown = (e) => {
+			if (runningFinal) return;
+			e.stopPropagation();
+			e.preventDefault();
+			touchA = true;
+			try {
+				btn.setPointerCapture(e.pointerId);
+			} catch {}
+		};
+		const aUp = () => {
+			touchA = false;
+		};
+		addEventListener("keydown", down);
+		addEventListener("keyup", up);
+		addEventListener("blur", blur);
+		wrap.addEventListener("pointerdown", poke);
+		wrap.addEventListener("pointerdown", joyDown);
+		wrap.addEventListener("pointermove", joyMove);
+		wrap.addEventListener("pointerup", joyEnd);
+		wrap.addEventListener("pointercancel", joyEnd);
+		btn.addEventListener("pointerdown", aDown);
+		btn.addEventListener("pointerup", aUp);
+		btn.addEventListener("pointercancel", aUp);
+		go(0);
+		raf = requestAnimationFrame(loop);
+		return () => {
+			dead = true;
+			cancelAnimationFrame(raf);
+			finalStop?.();
+			finalStop = null;
+			removeEventListener("keydown", down);
+			removeEventListener("keyup", up);
+			removeEventListener("blur", blur);
+			wrap.removeEventListener("pointerdown", poke);
+			wrap.removeEventListener("pointerdown", joyDown);
+			wrap.removeEventListener("pointermove", joyMove);
+			wrap.removeEventListener("pointerup", joyEnd);
+			wrap.removeEventListener("pointercancel", joyEnd);
+			btn.removeEventListener("pointerdown", aDown);
+			btn.removeEventListener("pointerup", aUp);
+			btn.removeEventListener("pointercancel", aUp);
+		};
+	}
+	//#endregion
+	//#region src/game/standalone.ts
+	const cv = document.getElementById("c");
+	const wrap = document.getElementById("wrap");
+	if (cv instanceof HTMLCanvasElement && wrap instanceof HTMLElement) startCampaign(cv, wrap);
+	//#endregion
+})();
+
 </script></body></html>
