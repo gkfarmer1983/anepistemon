@@ -58,9 +58,8 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 	}
 
 	// ---------- game state ----------
-	const jumpStr = () => String(Math.min(999, score)).padStart(3, "0");
 	const LANES = [2, 4, 6, 8, 10, 12];
-	let level, winT, state, t, lives, score, speedMul, fairyP, hop, dead, frogs, fish, fishT, sparks, flashT, fade;
+	let state, t, lives, pts, screenNo, finishing, et, speedMul, fairyP, hop, dead, frogs, fish, fishT, sparks, flashT, fade;
 
 	function newFrogs() {
 		frogs = [];
@@ -72,32 +71,25 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 	}
 	function spawnFairy() { fairyP = { x: 72, y: 14 * T }; hop = null; dead = 0; }
 	function startGame() {
-		state = "play"; level = 1; lives = 3; score = 0; speedMul = 1; fish = null; fishT = 200; sparks = []; flashT = 0; fade = 1;
+		state = "play"; lives = 3; pts = 0; screenNo = 1; finishing = false; speedMul = 1; fish = null; fishT = 200; sparks = []; flashT = 0; fade = 1;
 		newFrogs(); spawnFairy();
 	}
+	function startEnd() { state = "end"; et = 0; fade = 0; sparks = []; }
 	function burst(x, y, n) { for (let i = 0; i < n; i++) { const a = Math.PI * 2 * i / n; sparks.push({ x, y, dx: Math.cos(a) * 1.2, dy: Math.sin(a) * 1.2, l: 20 }); } }
 	function kill(x, y) { if (dead) return; dead = 1; hop = null; burst(x, y, 10); lives--; }
-
-	const MAX_LEVEL = 20;
-	function winGame() { state = "win"; winT = 0; frogs = []; fish = null; sparks = []; flashT = 0; burst(fairyP.x + 8, 8, 12); }
 
 	function tryHop(dx, dy) {
 		if (state !== "play" || dead || hop || flashT) return;
 		const nx = fairyP.x + dx * T, ny = fairyP.y + dy * T;
 		if (nx < 0 || nx > W - T || ny < 0 || ny > H - T) return;
 		hop = { fx: fairyP.x, fy: fairyP.y, tx: nx, ty: ny, k: 0 };
-		score++; // one point per jump
+		pts++; // 1 hop = 1 point
 	}
 
 	function update() {
 		t++;
 		if (fade > 0) fade = Math.max(0, fade - 1 / 30);
-		if (state === "win") {
-			winT++;
-			fairyP.x += (72 - fairyP.x) * .1; if (Math.abs(fairyP.x - 72) < .5) fairyP.x = 72;
-			for (let i = sparks.length - 1; i >= 0; i--) { const s = sparks[i]; s.x += s.dx; s.y += s.dy; if (--s.l <= 0) sparks.splice(i, 1); }
-			return;
-		}
+		if (state === "end") { et++; return; }
 		if (state !== "play") return;
 		const cx = fairyP.x + 8, cy = fairyP.y + 8;
 
@@ -106,12 +98,9 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 			const p = hop.k / 6;
 			fairyP.x = hop.fx + (hop.tx - hop.fx) * p; fairyP.y = hop.fy + (hop.ty - hop.fy) * p;
 			if (hop.k >= 6) { fairyP.x = hop.tx; fairyP.y = hop.ty; hop = null;
-				if (fairyP.y === 0) {
-					if (++level > MAX_LEVEL) winGame();
-					else { flashT = 50; speedMul = Math.min(2, 1 + (level - 1) * .05); newFrogs(); fish = null; }
-				} }
+				if (fairyP.y === 0) { flashT = 50; fish = null; if (screenNo >= 20) finishing = true; else { screenNo++; speedMul = Math.min(1.8, speedMul + .05); newFrogs(); } } }
 		}
-		if (flashT && --flashT === 0) spawnFairy();
+		if (flashT && --flashT === 0) { if (finishing) startEnd(); else spawnFairy(); }
 
 		// frogs: float by, tongue out if the fairy gets close
 		for (const f of frogs) {
@@ -139,8 +128,8 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 		if (fish) {
 			fish.k++;
 			if (fish.k > 50 && fish.k < 80 && !dead && !flashT) {
-				// only dangerous on the tile where the ripple appeared
-				if (Math.abs(cx - fish.x) < 8 && Math.abs(cy - fish.y) < 8) kill(cx, cy);
+				// only the block where the fish jumps (marked by the ripples) is dangerous
+				if (Math.floor(cx / T) === Math.floor(fish.x / T) && Math.floor(cy / T) === Math.floor(fish.y / T)) kill(cx, cy);
 			}
 			if (fish.k === 50 || fish.k === 80) burst(fish.x, fish.y, 6);
 			if (fish.k > 84) fish = null;
@@ -155,19 +144,18 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 		g.fillStyle = c;
 		for (let a = 0; a < 16; a++) { const an = a / 16 * Math.PI * 2; g.fillRect(Math.round(cx + Math.cos(an) * r), Math.round(cy + Math.sin(an) * r * .5), 1, 1); }
 	}
+	// plain rocky banks with a jagged edge, kept clear so the HUD is easy to read
+	const HEART = [".##..##.", "########", "########", "########", ".######.", "..####..", "...##...", "........"];
+	const ROCK = [0, 2, 1, 3, 2, 0, 3, 1, 2, 3, 0, 2, 1, 3, 1, 0, 2, 3, 1, 2, 0, 3, 2, 1, 3, 0];
 	function drawBank() {
-		for (let i = 0; i < 10; i++) {
-			const x = i * T + 4 + (i * 5 % 4), y = 224;
-			R(x, y + 8, 1, 6, M); R(x + 2, y + 6, 1, 8, M); R(x - 2, y + 9, 1, 5, M);
-		}
-		for (let i = 0; i < 10; i++) {
-			const x = i * T + 4 + (i * 7 % 5);
-			R(x, 8, 1, 6, M); R(x + 2, 10, 1, 4, M);
-			if (i % 3 === 1) { R(x + 1, 3, 1, 3, G); R(x, 4, 3, 1, G); R(x + 1, 4, 1, 1, D); }
+		for (let x = 0; x < W; x++) {
+			const o = ROCK[Math.floor(x / 6) % ROCK.length], po = x ? ROCK[Math.floor((x - 1) / 6) % ROCK.length] : o;
+			const hi = Math.max(o, po), lo = Math.min(o, po);
+			R(x, 16 - hi, 1, hi - lo + 1, M); R(x, 15 - hi, 1, 1, D);     // top bank edge (blocky rock teeth)
+			R(x, 224 + lo, 1, hi - lo + 1, M); R(x, 225 + hi, 1, 1, D);   // bottom bank edge
 		}
 	}
 	function drawWater() {
-		R(0, 16, W, 1, M); R(0, 223, W, 1, M);
 		for (let r = 1; r < 14; r++) for (let k = 0; k < 2; k++) {
 			const x = ((r * 37 + k * 71 + ((t >> 5) & 1) * 3) % 150), y = r * T + 5 + k * 6;
 			R(x, y, 4, 1, D);
@@ -191,40 +179,74 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 		drawFairyObj();
 		g.fillStyle = G; for (const s of sparks) if (s.l > 6 || s.l >> 1 & 1) g.fillRect(Math.round(s.x), Math.round(s.y), 1, 1);
 		// HUD on the starting bank
-		for (let i = 0; i < lives; i++) txt("♥", 3 + i * 10, 226, G);
-		R(58, 2, 44, 11, "#000"); txt(jumpStr(), 80, 4, G, "center");
-		if (flashT) txt("Made it!", 80, 112, G, "center");
+		for (let i = 0; i < lives; i++) for (let j = 0; j < 8; j++) for (let k = 0; k < 8; k++) if (HEART[j][k] === "#") R(4 + i * 11 + k, 229 + j, 1, 1, G);
+		txt(screenNo + "/20", 156, 230, G, "right");
+		txt(String(pts).padStart(3, "0"), 80, 4, G, "center");
 	}
 	function draw() {
 		g.fillStyle = "#000"; g.fillRect(0, 0, W, H);
 		if (state === "title") {
-			fairy(72, 66 + (t >> 4 & 1));
-			txt("Fairy", 80, 98, G, "center", 3);
-			if (t >> 5 & 1) txt("Click to Play", 80, 170, G, "center");
-			else txt("Click to Play", 80, 170, M, "center");
+			fairy(72, 52 + (t >> 4 & 1));
+			txt("Fairy", 80, 100, G, "center", 2);
+			txt("Click to Play", 80, 132, (t >> 5 & 1) ? G : M, "center");
 		} else if (state === "over") {
 			drawBank(); drawWater();
 			txt("Game", 80, 70, G, "center", 2); txt("Over", 80, 94, G, "center", 2);
-			txt("Jumps: " + jumpStr(), 80, 132, M, "center");
+			txt("Score: " + String(pts).padStart(3, "0"), 80, 132, M, "center");
 			if (t > 60) txt("Click to Play", 80, 170, (t >> 5 & 1) ? G : M, "center");
-		} else if (state === "win") {
-			drawBank(); drawWater(); drawFairyObj();
-			g.fillStyle = G; for (const s of sparks) if (s.l > 6 || s.l >> 1 & 1) g.fillRect(Math.round(s.x), Math.round(s.y), 1, 1);
-			const fa = Math.max(0, Math.min(1, (winT - 90) / 60));
-			if (fa > 0) { g.fillStyle = `rgba(0,0,0,${fa})`; g.fillRect(0, 0, W, H); }
-			if (winT > 160) {
-				g.globalAlpha = Math.min(1, (winT - 160) / 40);
-				txt("gz.. you made it!", 80, 112, G, "center");
-				g.globalAlpha = 1;
-			}
-			if (winT > 260) txt("Click to Play", 80, 170, (t >> 5 & 1) ? G : M, "center");
-		} else drawPlay();
+		} else if (state === "end") drawEnd();
+		else drawPlay();
 		if (fade > 0) { g.fillStyle = `rgba(0,0,0,${fade})`; g.fillRect(0, 0, W, H); }
+	}
+
+	// ---------- ending: crawling onto dry ground ----------
+	let seed = 7; const rnd = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+	const PLANTS = [];
+	for (let n = 0; n < 400 && PLANTS.length < 46; n++) {
+		const x = 6 + (rnd() * 148 | 0), y = 22 + (rnd() * 168 | 0), ty = rnd() * 3 | 0;
+		if (x > 4 && x < 156 && y > 24 && y < 74 && x > 0 && y > 24 && y < 74) continue; // keep the message area clear
+		if (x > 50 && x < 108 && y > 100) continue;                                       // keep the crawl path clear
+		PLANTS.push({ x, y, ty });
+	}
+	{ // the right side mirrors the left side, and no two plants may crowd or overlap each other
+		const kept = [], far = (q) => kept.every((k) => Math.hypot(k.x - q.x, k.y - q.y) >= 19);
+		for (const q of PLANTS.filter((q) => q.x < 80)) if (far(q)) kept.push(q);
+		for (const q of kept.slice()) { const m = { x: 154 - q.x, y: q.y, ty: (q.ty + 1) % 3 }; if (q.y <= 172 && far(m)) kept.push(m); }
+		PLANTS.length = 0;
+		for (const q of kept) PLANTS.push(q);
+	}
+	PLANTS.push({ x: 36, y: 147, ty: 1 }, { x: 140, y: 150, ty: 2 }, { x: 100, y: 150, ty: 0 }); // two fill-ins to even out the middle sides
+	PLANTS.sort((a, b) => a.y - b.y);
+	// plants and rocks for the final scene: your pixel drawings
+	const FLOWER_A = [".#.", "#.#", "#.#", ".#.", ".#.", ".#.", "###"];
+	const SPRIG = ["..#..", ".#.#.", "..#..", "..#..", ".###.", "..#..", "#.#.#", ".###."];
+	const FLOWER_B = [".###.", "#...#", ".###.", "..#..", "..#..", "#.#.#", "#.#.#", ".###."];
+	const GRASS_A = [".#.#.#.", "..#.#..", "#.###.#"];
+	const GRASS_B = [".#.#.#.", "#.#.#.#"];
+	function plant(x, y, ty, v) {
+		const a = v != null ? [GRASS_A, GRASS_B, FLOWER_A, FLOWER_B, SPRIG][v] : ty === 0 ? ((x + y) & 1 ? GRASS_A : GRASS_B) : ty === 1 ? ((x >> 1) & 1 ? FLOWER_A : FLOWER_B) : SPRIG;
+		const top = y + 12 - a.length;
+		for (let j = 0; j < a.length; j++) for (let i = 0; i < a[j].length; i++) if (a[j][i] === "#") R(x + i, top + j, 1, 1, M);
+	}
+	function drawEnd() {
+		for (let i = 1; i < 30; i++) R((i * 53) % 156, 20 + (i * 37) % 176, 2, 1, D); // dry ground specks
+		for (const q of PLANTS) plant(q.x, q.y, q.ty, q.v);
+		const p = Math.min(1, et / 230), x = 72 + (et < 230 ? (et >> 3 & 1) : 0);
+		const y = 198 - 70 * (p + (p < 1 ? .035 * Math.sin(et / 4) : 0)) + (p >= 1 ? (et >> 4 & 1) : 0);
+		fairy(x, y);
+		for (let x = 0; x < W; x++) { // jagged rock bank edge; the water below hides the fairy at first
+			const o = ROCK[Math.floor(x / 6) % ROCK.length], po = x ? ROCK[Math.floor((x - 1) / 6) % ROCK.length] : o;
+			R(x, 201 + Math.min(o, po), 1, 40, "#000");
+			R(x, 200 + Math.min(o, po), 1, Math.abs(o - po) + 1, M); R(x, 199 + Math.max(o, po), 1, 1, D);
+		}
+		for (let r = 0; r < 4; r++) for (let k = 0; k < 2; k++) R(((r * 41 + k * 77 + (et >> 5 & 1) * 3) % 150), 210 + r * 8 + k * 3, 4, 1, D);
+		txt("gz.. you made it!", 80, 48, G, "center"); // always there, no delay and no fade
+		if (et > 330) txt("Play Again?", 80, 222, (et >> 5 & 1) ? G : M, "center"); // on the water
 	}
 
 	// ---------- input ----------
 	function press() {
-		if (state === "title" || (state === "over" && t > 60) || (state === "win" && winT > 260)) startGame();
+		if (state === "title" || (state === "over" && t > 60) || (state === "end" && et > 330)) startGame();
 	}
 	wrap.addEventListener("pointerdown", (e) => {
 		if (state !== "play") return press();
@@ -239,7 +261,7 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 		else if (k === " " || k === "enter") press();
 	});
 
-	state = "title"; level = 1; winT = 0; t = 0; fade = 1; lives = 3; score = 0; speedMul = 1; frogs = []; sparks = [];
+	state = "title"; t = 0; et = 0; fade = 1; lives = 3; pts = 0; screenNo = 1; speedMul = 1; frogs = []; sparks = [];
 	let last = 0, acc = 0;
 	function loop(ts) {
 		acc += Math.min(ts - last, 100); last = ts;
@@ -247,6 +269,6 @@ canvas{width:100%;height:100%;image-rendering:pixelated;display:block;filter:dro
 		draw(); requestAnimationFrame(loop);
 	}
 	requestAnimationFrame(loop);
-	window.__fc = { start: startGame, st: () => ({ state, lives, score }), skip(n) { for (let i = 0; i < n; i++) update(); }, hop: tryHop, fairy: () => fairyP };
+	window.__fc = { start: startGame, st: () => ({ state, lives, pts, screenNo }), win() { startGame(); screenNo = 20; finishing = true; startEnd(); }, skip(n) { for (let i = 0; i < n; i++) update(); }, hop: tryHop, fairy: () => fairyP };
 })();
 </script></body></html>
